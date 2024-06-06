@@ -107,7 +107,7 @@ class Operator:
         if self.is_infinite:
             raise ValueError("The operator is infinite and cannot be expanded")
         mat_representations = [subspace_identity[subspace] if subspace != self.subspace else self.mat_representation for subspace in subspaces]
-        new_operator = Operator(self.name, subspace = "S", mat_representation = kronecker_product(*mat_representations), is_infinite = True )
+        new_operator = Operator(self.name, subspace = "S", mat_representation = kronecker_product(*mat_representations), is_infinite = False )
         new_operator.subspace = "finite"
         return new_operator
 
@@ -263,7 +263,7 @@ class Term:
         return self + (-other)  
 
     @multimethod
-    def __or__(self, other : Union['Operator', 'Term']):
+    def __or__(self, other : 'Operator'):
         subspaces = list(self.info.keys())
         if len(subspaces) == 1:
             return 0
@@ -286,8 +286,24 @@ class Term:
         return 0
 
     @multimethod
+    def __or__(self, other : 'Term'):
+        subspaces = list(self.info.keys())
+        if len(subspaces) == 1:
+            return 0
+        coefficient = prod(self.info['coeff'])
+        A = self.info[subspaces[1]]
+        if len(subspaces) == 2:
+            A_op = A[0]
+            B = prod(A[1:])
+            return coefficient * (A_op * (B | other) + (A_op | other) * B)  
+        A_op = prod(A)
+        B = prod([self.info[subspace] for subspace in subspaces[2:]])
+        return coefficient * (A_op * (B | other) + (A_op | other) * B)   
+
+    @multimethod
     def __or__(self, other : 'Expression'):
         return Expression(self) | other
+    
 
     def domain_expansion(self, total_dimesion, subspace_identity, subspaces):
         if self.is_infinite:
@@ -369,7 +385,7 @@ class Expression:
     
     def __neg__(self):
         new_self = deepcopy(self)
-        new_self.terms = [-term for term in new_self.terms]
+        new_self.terms = array([-term for term in new_self.terms])
         return new_self
     
     def __sub__(self, other):
@@ -393,9 +409,7 @@ class Expression:
     
     @multimethod
     def __or__(self, other : 'Expression'):
-        new_expression = deepcopy(self)
-        new_expression.is_infinite = self.is_infinite or other.is_infinite
-        return (new_expression.terms[None, :] | other.terms[:, None]).sum()
+        return (self.terms[None, :] | other.terms[:, None]).sum()
 
     def nested_commutator(self, other, k=1):
         if k == 0:
