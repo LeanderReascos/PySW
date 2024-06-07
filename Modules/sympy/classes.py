@@ -20,13 +20,6 @@ class RDOperator(Operator):
         return self.args[2]
     
     @property
-    def subspace_identity(self):
-        if self.dim != -1:
-            return eye(self.dim)  
-        else: 
-            return 1
-    
-    @property
     def infinite(self):
         return self.dim == -1
     
