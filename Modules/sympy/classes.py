@@ -46,7 +46,7 @@ class RDOperator(Operator):
         return S.Zero
 
 
-class RDsymbol(Operator):
+class RDsymbol(Expr):
     @property
     def name(self):
         return self.args[0]
@@ -62,10 +62,6 @@ class RDsymbol(Operator):
     def _latex(self, printer):
         return printer._print(self.name)
     
-    
-    def __new__(cls, name, order = 1):
-        return Operator.__new__(cls, sympify(name), sympify(order))
-    
     def _eval_commutator_RDOperator(self, other, **options):
         return S.Zero
     
@@ -74,6 +70,12 @@ class RDsymbol(Operator):
     
     def _eval_commutator_RDsymbol(self, other, **options):
         return S.Zero
+    
+    def __new__(cls, name, order = 1):
+        return Expr.__new__(cls, sympify(name), sympify(order))
+    
+    
+        
     
 class RDBoson(Operator):
 
