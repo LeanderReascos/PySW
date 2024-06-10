@@ -267,19 +267,18 @@ def get_finite_operators(names, subspaces, dims, matrices):
     operators = [RDOperator(names[i], subspace = subspaces[i], dim = dims[i], matrix=matrices[i]) for i in range(len(names))] 
     identities = get_finite_identities(np_sum(operators))
     dim = Mul(*list(dict(zip(subspaces, dims)).values()))
-    expanded_operators = [kronecker_product(*[identities[symbols(subspace)] if symbols(subspace) != op.subspace else op.matrix for subspace in subspaces]) for op in operators]
+    unique_subspaces = list(set(subspaces))
+    expanded_operators = [kronecker_product(*[identities[symbols(subspace)] if symbols(subspace) != op.subspace else op.matrix for subspace in unique_subspaces]) for op in operators]
     new_operators = [RDOperator(names[i], subspace = "finite", dim = dim, matrix=expanded_operators[i]) for i in range(len(names))]
     return new_operators
 
 
 @multimethod
 def get_matrix(expr: Union[RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    print(expr)
     return expr
 
 @multimethod
 def get_matrix(expr: RDOperator):
-    print(expr.matrix)
     return expr.matrix
 
 @multimethod
