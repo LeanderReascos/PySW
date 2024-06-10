@@ -1,11 +1,20 @@
+from typing import Union
 from sympy.physics.quantum import Operator
 from sympy.core.expr import Expr
 from sympy.core.symbol import Symbol
 from sympy.core.sympify import sympify
 from sympy.printing.latex import print_latex
-from sympy import eye, Matrix
+from sympy import Mul, Pow, eye, Matrix, I
+from sympy import zeros as sp_zeros
 from sympy.physics.quantum.boson import BosonOp
 from sympy.core.singleton import S
+
+from sympy.core.numbers import Integer, Float, ImaginaryUnit, One, Half, Rational
+
+from numpy import array
+from numpy import zeros as np_zeros
+
+from multimethod import multimethod
 
 
 class RDOperator(Operator):
@@ -31,9 +40,6 @@ class RDOperator(Operator):
     def _latex(self, printer):
         return printer._print(self.name)
     
-    def __new__(cls, name, subspace, dim, matrix):
-        return Operator.__new__(cls, name, subspace, dim, matrix)
-    
     def _eval_commutator_RDOperator(self, other, **options):
         if self.subspace != other.subspace:
             return S.Zero
@@ -44,23 +50,18 @@ class RDOperator(Operator):
     
     def _eval_commutator_RDsymbol(self, other, **options):
         return S.Zero
+    
+    def __new__(cls, name, subspace, dim, matrix):
+        return Operator.__new__(cls, name, subspace, dim, matrix)
+    
+    
+        
 
-
-class RDsymbol(Expr):
-    @property
-    def name(self):
-        return self.args[0]
+class RDsymbol(Symbol):
 
     @property
     def order(self):
-        return self.args[1]
-    
-    
-    def _sympystr(self, printer):
-        return printer._print(self.name)
-    
-    def _latex(self, printer):
-        return printer._print(self.name)
+        return self._order
     
     def _eval_commutator_RDOperator(self, other, **options):
         return S.Zero
@@ -71,8 +72,11 @@ class RDsymbol(Expr):
     def _eval_commutator_RDsymbol(self, other, **options):
         return S.Zero
     
-    def __new__(cls, name, order = 1):
-        return Expr.__new__(cls, sympify(name), sympify(order))
+    def __new__(cls, name, *args, order=0):
+        obj = Symbol.__new__(cls, name, *args)
+        obj._order = order
+        return obj
+
     
     
         
@@ -114,3 +118,103 @@ class RDBoson(Operator):
         
     def _eval_commutator_RDsymbol(self, other, **options):
         return S.Zero
+
+
+@multimethod
+def get_terms_and_factors(expr: Union[Symbol, Operator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+    """Returns tuple of two lists: one containing ordered terms within expr, the second 
+        containing lists of factors for each term."""
+    return [expr], [[expr]]
+
+@multimethod
+def get_terms_and_factors(expr: Pow):
+    """Returns tuple of two lists: one containing ordered terms within expr, the second 
+        containing lists of factors for each term."""
+    pow_base, pow_exp = expr.as_base_exp()
+    if isinstance(pow_base, int) and pow_exp > 0:
+        return [expr], [[pow_base for _ in range(pow_exp)]]
+    return [expr], [[expr]]
+
+@multimethod
+def get_terms_and_factors(expr : Expr):
+    """Returns tuple of two lists: one containing ordered terms within expr, the second 
+        containing lists of factors for each term."""
+    expr = expr.expand()
+    terms = expr.as_ordered_terms()
+    factors_of_terms = []
+    for term in terms:
+        factors = term.as_ordered_factors()
+        factors_list = []
+        for f in factors:
+            _, f_list = get_terms_and_factors(f)
+            factors_list += f_list[0]
+        factors_of_terms.append(factors_list)
+
+    return terms, factors_of_terms
+
+class RDBasis():
+    def __init__(self, name, subspace, dim):
+        self.name = name
+        self.subspace = subspace
+        self.dim = dim
+        if dim == 2:
+            matrix_basis = [eye(2), Matrix([[0, 1], [1, 0]]), Matrix([[0, -I], [I, 0]]), Matrix([[1, 0], [0, -1]])] # Pauli matrices: I, X, Y, Z
+        else:
+            matrix_basis = []
+            for i in range(0, dim**2):
+                mat = sp_zeros(dim)
+                mat[i//dim, i%dim] = 1
+                matrix_basis.append(mat)
+        self._basis = array([RDOperator(name + f'_{{{i}}}', subspace, dim, mat) for i, mat in enumerate(matrix_basis)], dtype=object)
+        self.basis_ling_alg_norm  = (self._basis[0].matrix.T.conjugate() * self._basis[0].matrix).trace()
+
+    @multimethod
+    def project(self, to_be_projected : RDOperator):
+        # Since it is a basis operator, it is already projected. The subspace does not matter.
+        return to_be_projected
+
+
+    @multimethod
+    def project(self, to_be_projected : Union[Symbol, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+        return to_be_projected
+
+    @multimethod
+    def project(self, to_be_projected : Expr):
+        _, factors = get_terms_and_factors(to_be_projected)
+        
+        result =[] 
+        for term in factors:  
+            coeff = 1
+            ops = 1
+            
+            for factor in term:
+                if isinstance(factor, RDOperator):
+                    if factor.subspace != self.subspace:
+                        coeff *= factor
+                        continue
+                    ops *= factor.matrix
+                    continue
+
+                coeff *= factor
+
+            result.append(coeff * self.project(ops))
+        
+        return sum(result)
+    
+    @multimethod
+    def project(self, to_be_projected : Pow):
+        base, exp = to_be_projected.as_base_exp()
+        if base.has(Operator):
+            
+
+
+    @multimethod
+    def project(self, to_be_projected : Matrix):
+        if to_be_projected.shape != (self.dim, self.dim):
+            raise ValueError('Matrix to be projected has wrong shape.')
+
+        basis_coeffs = np_zeros(self.dim**2, dtype=object)
+
+        for i, basis in enumerate(self._basis):
+            basis_coeffs[i] = (basis.matrix * to_be_projected.T.conjugate()).trace()
+        return basis_coeffs.dot(self._basis)  / self.basis_ling_alg_norm

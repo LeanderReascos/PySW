@@ -1,4 +1,4 @@
-from Modules.sympy.classes import *
+from Modules.sympy.classes import RDOperator, RDsymbol, RDBoson, Operator, get_terms_and_factors
 from typing import Union
 from sympy.core.numbers import Integer, Float, ImaginaryUnit, One, Half, Rational
 from sympy.core.power import Pow
@@ -14,36 +14,13 @@ from multimethod import multimethod
 numbers_list = [int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]
 
 
-
 @multimethod
-def get_terms_and_factors(expr: Union[Operator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    """Returns tuple of two lists: one containing ordered terms within expr, the second 
-        containing lists of factors for each term."""
-    return [expr], [[expr]]
-
-@multimethod
-def get_terms_and_factors(expr: Pow):
-    """Returns tuple of two lists: one containing ordered terms within expr, the second 
-        containing lists of factors for each term."""
-    pow_base, pow_exp = expr.as_base_exp()
-    return [expr], [[pow_base for _ in range(pow_exp)]]
-
-@multimethod
-def get_terms_and_factors(expr : Expr):
-    """Returns tuple of two lists: one containing ordered terms within expr, the second 
-        containing lists of factors for each term."""
-    expr = expr.expand()
-    terms = expr.as_ordered_terms()
-    factors_of_terms = []
-    for term in terms:
-        factors = term.as_ordered_factors()
-        factors_list = []
-        for f in factors:
-            _, f_list = get_terms_and_factors(f)
-            factors_list += f_list[0]
-        factors_of_terms.append(factors_list)
-
-    return terms, factors_of_terms
+def group_by_order(expr: Pow):
+    """Returns dict of expressions separated into orders."""
+    base_order = group_by_order(expr.base)
+    if isinstance(base_order, int):
+        return  base_order * expr.exp
+    return list(base_order.keys())[0] * expr.exp
 
 @multimethod
 def group_by_order(expr: RDsymbol):
@@ -69,7 +46,7 @@ def group_by_order(expr: Expr):
     return order_separated
 
 @multimethod
-def group_by_infinite(expr: Union[RDBoson, RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+def group_by_infinite(expr: Union[Mul, Pow, RDBoson, RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
     """Returns dict of expressions separated into infinite and finite subspaces."""
     return isinstance(expr, RDBoson)
 
@@ -92,9 +69,17 @@ def count_bosons(expr: Union[RDOperator, RDsymbol, int, float, complex, Integer,
     return None
 
 @multimethod
+def count_bosons(expr: Pow):
+    """Returns number of bosons in expression."""
+    res = count_bosons(expr.base)
+    if res == dict():
+        return None
+    return res
+
+@multimethod
 def count_bosons(expr: RDBoson):
     """Returns number of bosons in expression."""
-    return expr.subspace , {"annihilation" if expr.is_annihilation else "creation": 1}
+    return {expr.subspace : {"annihilation" if expr.is_annihilation else "creation": 1}}
 
 @multimethod
 def count_bosons(expr: Expr):
@@ -107,7 +92,8 @@ def count_bosons(expr: Expr):
             result_count = count_bosons(factor)
             if result_count is  None:
                 continue
-            subspace, result_count = result_count
+
+            subspace, result_count = list(result_count.items())[0]
             for key, item in result_count.items():
                 if boson_count.get(subspace) is None:
                     boson_count[subspace] = {key: item}
@@ -129,6 +115,12 @@ def group_by_diagonal(expr: Union[RDsymbol, int, float, complex, Integer, Float,
     return {True : expr}
 
 @multimethod
+def group_by_diagonal(expr: Pow):
+    """Returns dict of expressions separated into diagonal and non-diagonal terms."""
+    result = group_by_diagonal(expr.base)
+    return {key : value**expr.exp for key, value in result.items()}
+
+@multimethod
 def group_by_diagonal(expr: Union[Expr, RDBoson]):
     """Returns dict of expressions separated into diagonal and non-diagonal terms."""
     terms, factors_of_terms = get_terms_and_factors(expr)
@@ -137,7 +129,7 @@ def group_by_diagonal(expr: Union[Expr, RDBoson]):
 
     for term, factors_of_term in zip(terms, factors_of_terms):
         bosons_counts = count_bosons(term)
-        is_boson_diagonal = np_all([boson_count.get("creation", 0) == boson_count.get("annihilation", 0) for boson_count in bosons_counts.values()])
+        is_boson_diagonal = bosons_counts is not None and np_all([boson_count.get("creation", 0) == boson_count.get("annihilation", 0) for boson_count in bosons_counts.values()])
         is_finite_diagonal = np_all([list(group_by_diagonal(factor).keys())[0] for factor in factors_of_term if not isinstance(factor, RDBoson)])
 
         diagonal_separated[is_boson_diagonal and is_finite_diagonal] = diagonal_separated.get(is_boson_diagonal and is_finite_diagonal, 0) + term
@@ -274,7 +266,7 @@ def get_finite_operators(names, subspaces, dims, matrices):
 
 
 @multimethod
-def get_matrix(expr: Union[RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+def get_matrix(expr: Union[Mul, Pow, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
     return expr
 
 @multimethod
