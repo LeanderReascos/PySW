@@ -46,9 +46,14 @@ def group_by_order(expr: Expr):
     return order_separated
 
 @multimethod
-def group_by_infinite(expr: Union[Mul, Pow, RDBoson, RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+def group_by_infinite(expr: RDBoson):
     """Returns dict of expressions separated into infinite and finite subspaces."""
-    return isinstance(expr, RDBoson)
+    return {True : expr}
+
+@multimethod
+def group_by_infinite(expr: Union[RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+    """Returns dict of expressions separated into infinite and finite subspaces."""
+    return {False : expr}
 
 @multimethod
 def group_by_infinite(expr: Expr):
@@ -58,23 +63,22 @@ def group_by_infinite(expr: Expr):
     infinity_separated = dict()
 
     for term, factors in zip(terms, factors_of_terms):
-        infinity = np_any([group_by_infinite(factor) for factor in factors])
+        infinity = np_any([any(group_by_infinite(factor).keys()) for factor in factors])
         infinity_separated[infinity] = infinity_separated.get(infinity, 0) + term
 
     return infinity_separated
 
 @multimethod
-def count_bosons(expr: Union[RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    """Returns number of bosons in expression."""
-    return None
+def group_by_infinite(expr: Pow):
+    """Returns dict of expressions separated into infinite and finite subspaces."""
+    is_inf = any(group_by_infinite(expr.base).keys())
+    return {is_inf : expr}
 
 @multimethod
-def count_bosons(expr: Pow):
+def count_bosons(expr: Union[RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
     """Returns number of bosons in expression."""
-    res = count_bosons(expr.base)
-    if res == dict():
-        return None
-    return res
+    return
+
 
 @multimethod
 def count_bosons(expr: RDBoson):
@@ -82,8 +86,23 @@ def count_bosons(expr: RDBoson):
     return {expr.subspace : {"annihilation" if expr.is_annihilation else "creation": 1}}
 
 @multimethod
-def count_bosons(expr: Expr):
+def count_bosons(expr: Pow):
     """Returns number of bosons in expression."""
+    expr = expr.expand()
+    base, exp = expr.as_base_exp()
+    result_count = count_bosons(base)
+    if result_count is None:
+        return
+    result_list = list(result_count.items())
+    if len(result_list) == 0:
+        return
+    subspace, result_count = result_list[0]
+    return {subspace : {key: item * exp for key, item in result_count.items()}}
+
+@multimethod
+def count_bosons(expr: Expr):
+    """Returns number of bosons in expression. Note that this function should receive only *Terms*"""
+    expr = expr.expand()
     terms, factors_of_terms = get_terms_and_factors(expr)
 
     boson_count = dict()
@@ -92,8 +111,10 @@ def count_bosons(expr: Expr):
             result_count = count_bosons(factor)
             if result_count is  None:
                 continue
-
-            subspace, result_count = list(result_count.items())[0]
+            result_list = list(result_count.items())
+            if len(result_list) == 0:
+                continue
+            subspace, result_count = result_list[0]
             for key, item in result_count.items():
                 if boson_count.get(subspace) is None:
                     boson_count[subspace] = {key: item}
@@ -221,6 +242,7 @@ def nested_commutator(A, B, k=1):
     return Commutator(nested_commutator(A, B, k-1), B)
 
 def group_by_infinite_operators(expr):
+    expr = expr.expand()
     infinit_dict = group_by_infinite(expr)
     result_dict = {1: infinit_dict.get(False, 0)}
 
@@ -234,6 +256,12 @@ def group_by_infinite_operators(expr):
             if isinstance(factor, RDBoson):
                 result_infinite_term *= factor
                 continue
+            if isinstance(factor, Pow):
+                base, exp = factor.as_base_exp()
+                if isinstance(base, RDBoson):
+                    result_infinite_term *= base**exp
+                    continue
+
             result_finite_term *= factor
         result_dict[result_infinite_term] = result_dict.get(result_infinite_term, 0) + result_finite_term
     

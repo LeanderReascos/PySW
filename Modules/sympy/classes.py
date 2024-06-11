@@ -4,20 +4,21 @@ from sympy.core.expr import Expr
 from sympy.core.symbol import Symbol
 from sympy.core.sympify import sympify
 from sympy.printing.latex import print_latex
-from sympy import Mul, Pow, eye, Matrix, I
+from sympy import Mul, Pow, eye, Matrix, I, sqrt
 from sympy import zeros as sp_zeros
 from sympy.physics.quantum.boson import BosonOp
 from sympy.core.singleton import S
 
 from sympy.core.numbers import Integer, Float, ImaginaryUnit, One, Half, Rational
 
-from numpy import array, sqrt
+from numpy import array
 from numpy import zeros as np_zeros
 
 from multimethod import multimethod
 
 
 class RDOperator(Operator):
+
     @property
     def name(self):
         return self.args[0]
@@ -52,7 +53,8 @@ class RDOperator(Operator):
         return S.Zero
     
     def __new__(cls, name, subspace, dim, matrix):
-        return Operator.__new__(cls, name, subspace, dim, matrix)
+        obj = Operator.__new__(cls, name, subspace, dim, matrix)
+        return obj
     
     
         
@@ -173,34 +175,46 @@ class RDBasis():
 
     @multimethod
     def project(self, to_be_projected : Expr):
+        to_be_projected = to_be_projected.expand()
         _, factors = get_terms_and_factors(to_be_projected)
-        
         result =[] 
         for term in factors:  
             coeff = 1
             ops = 1
-            
             for factor in term:
-                if isinstance(factor, RDOperator):
-                    if factor.subspace != self.subspace:
-                        coeff *= factor
-                        continue
-                    ops *= factor.matrix
-                    continue
-
-                coeff *= factor
-
+                c, op = self.project_to_coeff_and_matrix(factor)
+                coeff *= c
+                ops *= op
             result.append(coeff * self.project(ops))
         
         return sum(result)
     
     @multimethod
     def project(self, to_be_projected : Pow):
-        base, exp = to_be_projected.as_base_exp()
-        if base.has(Operator):
-            pass
-            
+        c, op = self.project_to_coeff_and_matrix(to_be_projected)
+        return c * self.project(op)
 
+    @multimethod            
+    def project_to_coeff_and_matrix(self, to_be_projected:RDOperator):
+        if str(to_be_projected.subspace) != self.subspace:
+            return to_be_projected, 1
+        return 1, to_be_projected.matrix
+    
+    @multimethod
+    def project_to_coeff_and_matrix(self, to_be_projected:Union[RDBoson, Symbol, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+        return to_be_projected, 1
+    
+    @multimethod
+    def project_to_coeff_and_matrix(self, to_be_projected:Pow):
+        to_be_projected = to_be_projected.expand()
+        base, exp = to_be_projected.as_base_exp()
+        c, op = self.project_to_coeff_and_matrix(base)
+        return c**exp, op**exp
+
+    @multimethod
+    def project_to_coeff_and_matrix(self, to_be_projected:Expr):
+        return to_be_projected, 1
+    
 
     @multimethod
     def project(self, to_be_projected : Matrix):
@@ -228,8 +242,8 @@ def get_gell_mann(dim):
             
             # Anti-symmetric Gell-Mann matrices
             asymm = sp_zeros(dim, dim)
-            asymm[i, j] = -1j
-            asymm[j, i] = 1j
+            asymm[i, j] = -I
+            asymm[j, i] = I
             matrices.append(asymm)
     
     # Diagonal Gell-Mann matrices
@@ -238,7 +252,7 @@ def get_gell_mann(dim):
         for i in range(k):
             diag[i, i] = 1
         diag[k, k] = -k
-        diag = diag * sqrt(2 / (k * (k + 1)))
+        diag = diag * sqrt(Rational(2 , (k * (k + 1))))
         matrices.append(diag)
     
     return matrices
