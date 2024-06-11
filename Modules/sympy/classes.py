@@ -11,7 +11,7 @@ from sympy.core.singleton import S
 
 from sympy.core.numbers import Integer, Float, ImaginaryUnit, One, Half, Rational
 
-from numpy import array
+from numpy import array, sqrt
 from numpy import zeros as np_zeros
 
 from multimethod import multimethod
@@ -157,14 +157,7 @@ class RDBasis():
         self.name = name
         self.subspace = subspace
         self.dim = dim
-        if dim == 2:
-            matrix_basis = [eye(2), Matrix([[0, 1], [1, 0]]), Matrix([[0, -I], [I, 0]]), Matrix([[1, 0], [0, -1]])] # Pauli matrices: I, X, Y, Z
-        else:
-            matrix_basis = []
-            for i in range(0, dim**2):
-                mat = sp_zeros(dim)
-                mat[i//dim, i%dim] = 1
-                matrix_basis.append(mat)
+        matrix_basis = get_gell_mann(dim)
         self._basis = array([RDOperator(name + f'_{{{i}}}', subspace, dim, mat) for i, mat in enumerate(matrix_basis)], dtype=object)
         self.basis_ling_alg_norm  = (self._basis[0].matrix.T.conjugate() * self._basis[0].matrix).trace()
 
@@ -205,6 +198,7 @@ class RDBasis():
     def project(self, to_be_projected : Pow):
         base, exp = to_be_projected.as_base_exp()
         if base.has(Operator):
+            pass
             
 
 
@@ -218,3 +212,33 @@ class RDBasis():
         for i, basis in enumerate(self._basis):
             basis_coeffs[i] = (basis.matrix * to_be_projected.T.conjugate()).trace()
         return basis_coeffs.dot(self._basis)  / self.basis_ling_alg_norm
+    
+def get_gell_mann(dim):
+    """Generates the set of generalized Gell-Mann matrices for a given dimension."""
+    matrices = [eye(dim)]
+    
+    # Lambda_1 to Lambda_(n-1)^2
+    for i in range(dim):
+        for j in range(i + 1, dim):
+            # Symmetric Gell-Mann matrices
+            symm = sp_zeros(dim, dim)
+            symm[i, j] = 1
+            symm[j, i] = 1
+            matrices.append(symm)
+            
+            # Anti-symmetric Gell-Mann matrices
+            asymm = sp_zeros(dim, dim)
+            asymm[i, j] = -1j
+            asymm[j, i] = 1j
+            matrices.append(asymm)
+    
+    # Diagonal Gell-Mann matrices
+    for k in range(1, dim):
+        diag = sp_zeros(dim, dim)
+        for i in range(k):
+            diag[i, i] = 1
+        diag[k, k] = -k
+        diag = diag * sqrt(2 / (k * (k + 1)))
+        matrices.append(diag)
+    
+    return matrices
