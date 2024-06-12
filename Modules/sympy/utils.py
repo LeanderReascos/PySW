@@ -144,13 +144,14 @@ def group_by_diagonal(expr: Pow):
 @multimethod
 def group_by_diagonal(expr: Union[Expr, RDBoson]):
     """Returns dict of expressions separated into diagonal and non-diagonal terms."""
+
     terms, factors_of_terms = get_terms_and_factors(expr)
 
     diagonal_separated = dict()
 
     for term, factors_of_term in zip(terms, factors_of_terms):
         bosons_counts = count_bosons(term)
-        is_boson_diagonal = bosons_counts is not None and np_all([boson_count.get("creation", 0) == boson_count.get("annihilation", 0) for boson_count in bosons_counts.values()])
+        is_boson_diagonal = bosons_counts is None or np_all([boson_count.get("creation", 0) == boson_count.get("annihilation", 0) for boson_count in bosons_counts.values()])
         is_finite_diagonal = np_all([list(group_by_diagonal(factor).keys())[0] for factor in factors_of_term if not isinstance(factor, RDBoson)])
 
         diagonal_separated[is_boson_diagonal and is_finite_diagonal] = diagonal_separated.get(is_boson_diagonal and is_finite_diagonal, 0) + term
@@ -177,61 +178,6 @@ def get_finite_identities(expr: Expr):
         for factor in term:
             identities.update(get_finite_identities(factor))
     return identities
-
-
-
-@multimethod
-def domain_expansion(expr: Union[RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational], subspaces=None, identities=None):
-    """Returns sympy Matrix of expanded expression.
-    expr is expression to expand.
-    subs_dict is dictionary containing substitution rules for each operator into matrix form.
-    subspaces is ordered list of subspaces (order will indicate in which order to perform kronecker_product).
-    identities is list of identity operators in each subspace.
-    """
-    return expr
-
-@multimethod
-def domain_expansion(expr: RDBoson, subspaces, identities=None):
-    """Returns sympy Matrix of expanded expression.
-    expr is expression to expand.
-    subs_dict is dictionary containing substitution rules for each operator into matrix form.
-    subspaces is ordered list of subspaces (order will indicate in which order to perform kronecker_product).
-    identities is list of identity operators in each subspace.
-    """
-
-    identities = get_finite_identities(expr) if identities is None else identities
-    
-    matrices = [identities[subspace] for subspace in subspaces]
-    return kronecker_product(*matrices) * expr
-
-@multimethod
-def domain_expansion(expr: RDOperator, subspaces, identities=None):
-    """Returns sympy Matrix of expanded expression.
-    expr is expression to expand.
-    subs_dict is dictionary containing substitution rules for each operator into matrix form.
-    subspaces is ordered list of subspaces (order will indicate in which order to perform kronecker_product).
-    identities is list of identity operators in each subspace.
-    """
-    identities = get_finite_identities(expr) if identities is None else identities
-    matrices = [identities[subspace] if subspace != expr.subspace else expr.matrix for subspace in subspaces]
-    return kronecker_product(*matrices)
-
-@multimethod        
-def domain_expansion(expr:Expr, subspaces, identities=None):
-    """Returns sympy Matrix of expanded expression.
-    expr is expression to expand.
-    subs_dict is dictionary containing substitution rules for each operator into matrix form.
-    subspaces is ordered list of subspaces (order will indicate in which order to perform kronecker_product).
-    identities is list of identity operators in each subspace.
-    """
-
-    identities = get_finite_identities(expr) if identities is None else identities
-    terms, factors_of_terms = get_terms_and_factors(expr)
-    
-    matrices = []
-    for term in factors_of_terms: # "Can we avoid all these for loops?"
-        matrices.append(Mul(*[domain_expansion(factor, subspaces, identities) for factor in term]))
-    return Add(*matrices)
 
 def nested_commutator(A, B, k=1):
     if k == 0:
