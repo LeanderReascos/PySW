@@ -1,5 +1,5 @@
 from typing import Union
-from sympy.physics.quantum import Operator
+from sympy.physics.quantum import Operator, Commutator
 from sympy.core.expr import Expr
 from sympy.core.symbol import Symbol
 from sympy.core.sympify import sympify
@@ -15,6 +15,8 @@ from numpy import array
 from numpy import zeros as np_zeros
 
 from multimethod import multimethod
+
+from itertools import product
 
 
 class RDOperator(Operator):
@@ -224,9 +226,25 @@ class RDBasis():
         basis_coeffs = np_zeros(self.dim**2, dtype=object)
 
         for i, basis in enumerate(self._basis):
-            basis_coeffs[i] = (basis.matrix * to_be_projected.T.conjugate()).trace()
-        return basis_coeffs.dot(self._basis)  / self.basis_ling_alg_norm
-    
+            basis_coeffs[i] = (to_be_projected * basis.matrix.T.conjugate()).trace()
+        basis_coeffs /= self.basis_ling_alg_norm
+        if basis_coeffs[0] == 1:
+            return 1
+        return basis_coeffs.dot(self._basis)
+
+class RDCompositeBasis:
+    def __init__(self, bases : list[RDBasis]):
+        self.bases = bases
+        self.dim = Mul(*[basis.dim for basis in bases])
+        self._basis = array([Mul(*p) for p in product(*[basis._basis for basis in bases])], dtype=object)
+
+    def project(self, to_be_projected):
+        result = to_be_projected
+        for basis in self.bases:
+            result = basis.project(result)
+        return result
+
+
 def get_gell_mann(dim):
     """Generates the set of generalized Gell-Mann matrices for a given dimension."""
     matrices = [eye(dim)]

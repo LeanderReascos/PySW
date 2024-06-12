@@ -74,6 +74,44 @@ def group_by_infinite(expr: Pow):
     is_inf = any(group_by_infinite(expr.base).keys())
     return {is_inf : expr}
 
+
+def group_by_finite(expr):
+    """Returns dict of expressions separated into finite and infinite subspaces."""
+    result_infinite = group_by_infinite(expr)
+    # Swap keys
+    return {not key : value for key, value in result_infinite.items()}
+
+
+@multimethod
+def group_by_has_finite(expr: RDOperator):
+    """Returns dict of expressions separated into infinite and finite subspaces."""
+    return {True : expr}
+
+@multimethod
+def group_by_has_finite(expr: Union[RDBoson, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+    """Returns dict of expressions separated into infinite and finite subspaces."""
+    return {False : expr}
+
+@multimethod
+def group_by_has_finite(expr: Expr):
+    """Returns dict of expressions separated into infinite and finite subspaces."""
+    terms, factors_of_terms = get_terms_and_factors(expr)
+
+    finite_separated = dict()
+
+    for term, factors in zip(terms, factors_of_terms):
+        finite = np_any([any(group_by_has_finite(factor).keys()) for factor in factors])
+        finite_separated[finite] = finite_separated.get(finite, 0) + term
+
+    return finite_separated
+
+@multimethod
+def group_by_has_finite(expr: Pow):
+    """Returns dict of expressions separated into infinite and finite subspaces."""
+    is_f = any(group_by_has_finite(expr.base).keys())
+    return {is_f : expr}
+
+
 @multimethod
 def count_bosons(expr: Union[RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
     """Returns number of bosons in expression."""
@@ -213,15 +251,6 @@ def group_by_infinite_operators(expr):
     
     return result_dict
 
-
-def S(dim, name, order = 1):
-    symbols_list = [RDsymbol(name + f"_{i}", order=order) for i in range(dim**2)]
-    mat_representation =  Matrix([symbols_list[i] for i in range(dim**2)]).reshape(dim, dim)
-
-    S_op  = RDOperator(name, subspace = "finite", matrix=mat_representation, dim=dim)
-    #S_op.subspace = "finite"
-    return S_op
-
 def expand_commutator(expr):
     expr_expanded = expr.expand(commutator=True)
     while expr_expanded != expr:
@@ -229,15 +258,31 @@ def expand_commutator(expr):
         expr_expanded = expr.expand(commutator=True)
     return expr_expanded
 
-def get_finite_operators(names, subspaces, dims, matrices):
-    operators = [RDOperator(names[i], subspace = subspaces[i], dim = dims[i], matrix=matrices[i]) for i in range(len(names))] 
-    identities = get_finite_identities(np_sum(operators))
-    dim = Mul(*list(dict(zip(subspaces, dims)).values()))
-    unique_subspaces = list(set(subspaces))
-    expanded_operators = [kronecker_product(*[identities[symbols(subspace)] if symbols(subspace) != op.subspace else op.matrix for subspace in unique_subspaces]) for op in operators]
-    new_operators = [RDOperator(names[i], subspace = "finite", dim = dim, matrix=expanded_operators[i]) for i in range(len(names))]
-    return new_operators
+def group_by_finite_operators(expr):
+    expr = expr.expand()
+    finite_dict = group_by_has_finite(expr)
+    result_dict = {1: finite_dict.get(False, 0)}
 
+    finite_expr = finite_dict.get(True, 0)
+    terms, factors_of_terms = get_terms_and_factors(finite_expr)
+
+    for term in factors_of_terms:
+        result_infinite_term = 1
+        result_finite_term = 1
+        for factor in term:
+            if isinstance(factor, RDOperator):
+                result_finite_term *= factor
+                continue
+            if isinstance(factor, Pow):
+                base, exp = factor.as_base_exp()
+                if isinstance(base, RDOperator):
+                    result_finite_term *= base**exp
+                    continue
+
+            result_infinite_term *= factor
+        result_dict[result_finite_term] = result_dict.get(result_finite_term, 0) + result_infinite_term
+    
+    return result_dict
 
 @multimethod
 def get_matrix(expr: Union[Mul, Pow, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
