@@ -190,7 +190,7 @@ def group_by_diagonal(expr: Union[Expr, RDBoson]):
     for term, factors_of_term in zip(terms, factors_of_terms):
         bosons_counts = count_bosons(term)
         is_boson_diagonal = bosons_counts is None or np_all([boson_count.get("creation", 0) == boson_count.get("annihilation", 0) for boson_count in bosons_counts.values()])
-        is_finite_diagonal = np_all([list(group_by_diagonal(factor).keys())[0] for factor in factors_of_term if not isinstance(factor, RDBoson)])
+        is_finite_diagonal = np_all([list(group_by_diagonal(factor).keys())[0] for factor in factors_of_term if not factor.has(RDBoson)])
 
         diagonal_separated[is_boson_diagonal and is_finite_diagonal] = diagonal_separated.get(is_boson_diagonal and is_finite_diagonal, 0) + term
 
@@ -225,7 +225,7 @@ def nested_commutator(A, B, k=1):
 
     return Commutator(nested_commutator(A, B, k-1), B)
 
-def group_by_infinite_operators(expr):
+def group_by_infinite_operators(expr, commutation_relations = None):
     expr = expr.expand()
     infinit_dict = group_by_infinite(expr)
     result_dict = {1: infinit_dict.get(False, 0)}
@@ -247,9 +247,27 @@ def group_by_infinite_operators(expr):
                     continue
 
             result_finite_term *= factor
+
+        if commutation_relations is not None:
+            result_infinite_term = apply_commutation_relations(result_infinite_term, commutation_relations)
+            new_infinite_terms = result_infinite_term.as_ordered_terms()
+            for term in new_infinite_terms:
+                t, c = term.as_coefficients_dict().popitem()
+                result_dict[t] = result_dict.get(t, 0) + c * result_finite_term
+            continue
+
         result_dict[result_infinite_term] = result_dict.get(result_infinite_term, 0) + result_finite_term
     
     return result_dict
+
+def apply_commutation_relations(expr, commutation_relations=None):
+    if commutation_relations is None:
+        return expr
+    expr_new = expr.subs(commutation_relations).expand()
+    while expr_new != expr:
+        expr = expr_new
+        expr_new = expr.subs(commutation_relations).expand()
+    return expr_new
 
 def expand_commutator(expr):
     expr_expanded = expr.expand(commutator=True)
