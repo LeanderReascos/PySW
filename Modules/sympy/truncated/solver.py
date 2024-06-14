@@ -27,10 +27,10 @@ def generate_keys(order):
     Examples:
     ---------
     >>> generate_keys(2)
-    [[], [0], [0, 0], [1], [0, 1], [2], [1, 1]]
+    [[], [0], [1], [0, 1], [2], [1, 1]]
 
     >>> generate_keys(1)
-    [[], [0], [0, 0], [1]]
+    [[], [0], [1]]
 
     """
     keys = [] # will contain keys
