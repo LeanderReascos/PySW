@@ -163,7 +163,7 @@ class RDBasis():
         self.dim = dim
         matrix_basis = get_gell_mann(dim)
         self._basis = array([RDOperator(name + f'_{{{i}}}', subspace, dim, mat) for i, mat in enumerate(matrix_basis)], dtype=object)
-        self.basis_ling_alg_norm  = (self._basis[0].matrix.T.conjugate() * self._basis[0].matrix).trace()
+        self.basis_ling_alg_norm  = (self._basis[1].matrix.T.conjugate() * self._basis[1].matrix).trace()
 
     @multimethod
     def project(self, to_be_projected : RDOperator):
@@ -188,14 +188,27 @@ class RDBasis():
                 coeff *= c
                 ops *= op
             result.append(coeff * self.project(ops))
-        
         return sum(result)
     
     @multimethod
     def project(self, to_be_projected : Pow):
         c, op = self.project_to_coeff_and_matrix(to_be_projected)
         return c * self.project(op)
+    
+    @multimethod
+    def project(self, to_be_projected : Matrix):
+        if to_be_projected.shape != (self.dim, self.dim):
+            raise ValueError('Matrix to be projected has wrong shape.')
 
+        basis_coeffs = np_zeros(self.dim**2, dtype=object)
+        
+        for i, basis in enumerate(self._basis):
+            basis_coeffs[i] = (to_be_projected * basis.matrix.T.conjugate()).trace()
+        
+        basis_coeffs /= self.basis_ling_alg_norm
+        if basis_coeffs[0] == 1:
+            return 1
+        return basis_coeffs.dot(self._basis)
     @multimethod            
     def project_to_coeff_and_matrix(self, to_be_projected:RDOperator):
         if str(to_be_projected.subspace) != self.subspace:
@@ -218,19 +231,7 @@ class RDBasis():
         return to_be_projected, 1
     
 
-    @multimethod
-    def project(self, to_be_projected : Matrix):
-        if to_be_projected.shape != (self.dim, self.dim):
-            raise ValueError('Matrix to be projected has wrong shape.')
-
-        basis_coeffs = np_zeros(self.dim**2, dtype=object)
-
-        for i, basis in enumerate(self._basis):
-            basis_coeffs[i] = (to_be_projected * basis.matrix.T.conjugate()).trace()
-        basis_coeffs /= self.basis_ling_alg_norm
-        if basis_coeffs[0] == 1:
-            return 1
-        return basis_coeffs.dot(self._basis)
+    
 
 class RDCompositeBasis:
     def __init__(self, bases : list[RDBasis]):
