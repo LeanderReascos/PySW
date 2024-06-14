@@ -1,9 +1,9 @@
-from Modules.sympy.classes import RDOperator, RDsymbol, RDBoson, Operator, get_terms_and_factors
+from Modules.sympy.classes import RDOperator, RDsymbol, RDBoson, Operator, get_terms_and_factors, apply_substitution
 from typing import Union
 from sympy.core.numbers import Integer, Float, ImaginaryUnit, One, Half, Rational
 from sympy.core.power import Pow
 from sympy.core.expr import Expr
-from sympy import eye, kronecker_product, Mul, Add, Abs, diag, symbols, Matrix
+from sympy import eye, kronecker_product, Mul, Add, Abs, diag, latex, prod, symbols, Matrix, zeros
 from sympy.physics.quantum import Commutator
 
 from numpy import any as np_any
@@ -261,13 +261,7 @@ def group_by_infinite_operators(expr, commutation_relations = None):
     return result_dict
 
 def apply_commutation_relations(expr, commutation_relations=None):
-    if commutation_relations is None:
-        return expr
-    expr_new = expr.subs(commutation_relations).expand()
-    while expr_new != expr:
-        expr = expr_new
-        expr_new = expr.subs(commutation_relations).expand()
-    return expr_new
+    return apply_substitution(expr, commutation_relations)
 
 def expand_commutator(expr):
     expr_expanded = expr.expand(commutator=True)
@@ -302,22 +296,39 @@ def group_by_finite_operators(expr):
     
     return result_dict
 
-@multimethod
-def get_matrix(expr: Union[Mul, Pow, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    return expr
+@ multimethod
+def get_matrix(H: RDOperator, list_subspaces):
+    return kronecker_product(*[H.matrix if H.subspace == subspace else eye(dim) for subspace, dim in list_subspaces])
+
+@ multimethod
+def get_matrix(H: RDBoson, list_subspaces):
+    return kronecker_product(*[H.matrix if H.subspace == subspace else eye(dim) for subspace, dim in list_subspaces])
+
+@ multimethod
+def get_matrix(H: Union[RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational], list_subspaces):
+    return H * kronecker_product(*[eye(dim) for subspace, dim in list_subspaces])
 
 @multimethod
-def get_matrix(expr: RDOperator):
-    return expr.matrix
+def get_matrix(H: Pow, list_subspaces):
+    base, exp = H.as_base_exp()
+    return get_matrix(base, list_subspaces) ** exp
 
-@multimethod
-def get_matrix(expr : Expr):
-    "Only use expr without infinite operators"
-    terms, factors_of_terms = get_terms_and_factors(expr)
-    matrices = []
-    for term in factors_of_terms:
-        mat_res = 1
+@ multimethod
+def get_matrix(H: Expr, list_subspaces):
+    # list_subspaces : [[subspace, dim], ...]
+    H = H.expand()
+    terms, factors = get_terms_and_factors(H)
+    result_matrix = zeros(prod([dim for subspace, dim in list_subspaces]))
+    for term in factors:
+        term_matrix = 1
         for factor in term:
-            mat_res *= get_matrix(factor)
-        matrices.append(mat_res)
-    return Add(*matrices)
+            factor_matrix = get_matrix(factor, list_subspaces)
+            term_matrix *= factor_matrix
+        result_matrix += term_matrix
+    return result_matrix
+
+from IPython.display import display, Math
+
+def display_dict(dictionary):
+    for key, value in dictionary.items():
+        display(Math(f"{latex(key)} : {latex(value)}"))

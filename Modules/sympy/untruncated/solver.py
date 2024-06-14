@@ -1,3 +1,5 @@
+import textwrap
+import warnings
 from sympy import solve, factorial
 from Modules.sympy.classes import *
 from Modules.sympy.utils import *
@@ -68,17 +70,19 @@ def RD_solve(expr, unknowns):
 
 def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relations=None):
 
-    #print("Solver for the following Hamiltonian:")
-    #display(H)
-    #print("Using the following composite basis: " + composite_basis.name)
-    #print(f"Order: {order}")
-    #print(f"Full Diagonal: {full_diagonal}")
-    #print("\n\n")
-
-
-    #print("Prearing the keys".center(200, "-"))
-
     from_list_to_key_lenght = lambda l: ('-'.join([str(i) for i in l]), len(l))
+
+    terms = H.expand().as_ordered_terms()
+    subsaces = []
+    for term in terms:
+        if not term.has(RDBoson):
+            
+            continue
+        for factor in term.as_ordered_factors():
+            if factor.has(RDBoson):
+                subsaces.append(factor.subspace)
+
+    boson_subspaces = list(set(subsaces))
 
     list_keys_full = generate_keys(order)
     keys = rearrange_keys(list_keys_full)
@@ -86,34 +90,11 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
 
     rational_factorial = [Rational(1, factorial(i)) for i in range(order + 1)]
 
-    #print("|\tList".ljust(25) + "Keys".center(20) + "Length\t|".rjust(25))
-    for i, key in enumerate(keys):
-        k_str, l = from_list_to_key_lenght(key)
-        #print(f"|\t{i}".ljust(25) + f"{k_str}".center(20) + f"{l}\t|".rjust(25))
-
-    #print("\n\n")
-
-    #print("Solving the Hamiltonian".center(200, "-"))
-
     H_ordered = group_by_order(H)
     elementes_ordered = {str(key): value for key, value in H_ordered.items()}
 
-    # Aling to the left the title and the values to the right
-    
-    #print('H_ordered')
-    #display_dict(H_ordered)
-    #print('elementes_ordered')
-    #display_dict(elementes_ordered)
-
-    #print("\n\n")
-
-
     H0 = elementes_ordered.get('0', 0)
-
-    #print("Initial values".center(200, "-"))
-
-    #display_dict({'H_0': H0})
-
+   
     Vk_dict = {}
     Bk_dict = {}
     H_final = 0
@@ -122,64 +103,43 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
         Hk = group_by_diagonal(value)
         H_final += Hk.get(True, 0)
         Vk_dict[key] = Hk.get(False, 0)
-
-    #display_dict({'H_final': H_final})
-    #display_dict(Vk_dict)
-    #display_dict(Bk_dict)
-
+          
     S = {}
-
-    #print("-".center(200, "-"))
-
-    #print('\n\n')
-    #print("Solving the Hamiltonian".center(200, "-"))
-
+        
     for key in keys:
         k_total, l_total = from_list_to_key_lenght(key)
         order_it = np_sum(key)
         k_last, _ = from_list_to_key_lenght(key[:-1])
         k, _ = from_list_to_key_lenght([key[-1]])
-
-        #print("\n\n")
-        #print(f"{k_total}".center(200, "-"))
-        #print(f"\nKey: {key}, l_total: {l_total}, order_it: {order_it}, k_last: {k_last}, k: {k}\n")
-
+                
         if l_total == 1:
-            #print("\t * l_total == 1 > " + k_total)
-            continue
+                        continue
             
         if l_total == 2 and key[0] == 0:
             Vk = Vk_dict.get(order_it, 0)
             Bk = Bk_dict.get(order_it, 0)
 
-           #print(f"Solving S_{k}")
-           #display_dict({'V_k': Vk, 'B_k': Bk})
-
+            
             Vk_plus_Bk = Vk + Bk
-
             if Vk_plus_Bk == 0:
                 S[k] = 0
-                #print("-".center(200, "-"))
                 continue
 
             Sk, symbols_s = get_ansatz(Vk_plus_Bk, composite_basis)
-            #display_dict({'S_k': Sk})
-            #display_dict({'Symbols': symbols_s})
-
+            
             S_k_grouped = group_by_infinite_operators(Sk, commutation_relations)
-            #print("Sk grouped by infinite operators")
-           #display_dict(S_k_grouped)
             S_k_solved = 0
 
             elementes_ordered[k_total] = - Vk_plus_Bk
             eq = apply_commutation_relations(expand_commutator(Commutator(H0, Sk) + Vk_plus_Bk).doit(), commutation_relations)
-            #display_dict({'Equation to solve': eq})
-
+            
             expression_to_solve = composite_basis.project(eq).simplify().expand()
             sols = {s : 0 for s in symbols_s}
 
             group_by_infinite_operators_dict = group_by_infinite_operators(expression_to_solve, commutation_relations)
-            #display_dict(group_by_infinite_operators_dict)
+
+            raise_warning(group_by_infinite_operators_dict, boson_subspaces)
+
             for key, value in group_by_infinite_operators_dict.items():
                 if value == 0:
                     continue
@@ -190,34 +150,59 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
                     continue
                 S_k_solved += key * sk.subs(sols)
             
-            #print("S_k_solved")
-            #display_dict(sols)
-            #display_dict({f'S_{k}': S_k_solved})
-            #print("-".center(200, "-"))
             S[k] = S_k_solved
             continue
         
         prev_term = elementes_ordered.get(k_last, 0)
-        #display_dict({f'Previous term  {k_last}': prev_term})
         Sk = S[k]
-        #display_dict({f"Factorial for {k_total}":rational_factorial[l_total - 1]})
         new_term =  composite_basis.project(expand_commutator(Commutator(prev_term, Sk)).doit()).simplify().expand()
-        #display_dict({f'New term  {k_total}': new_term})
-
-        #print("-".center(200, "-"))
-
+        
+        
         elementes_ordered[k_total] = new_term
 
-        new_term_to_the_hamiltonian = rational_factorial[l_total - 1] *new_term
+        new_term_to_the_hamiltonian = (rational_factorial[l_total - 1] *new_term).expand()
 
         if not full_diagonal:
             H_final += new_term_to_the_hamiltonian
             continue
-
         Hk_new = group_by_diagonal(new_term_to_the_hamiltonian)
         Bk_dict[order_it] = Bk_dict.get(order_it, 0) + Hk_new.get(False, 0)
         H_final += Hk_new.get(True, 0)
     
     if commutation_relations:
         H_final = apply_commutation_relations(H_final, commutation_relations)
+
     return H_final, S
+
+def raise_warning(group_by_infinite_operators_dict, boson_subspaces):
+    # Raise warning if inconsistency in equations to solve
+    eqn_keys = list(group_by_infinite_operators_dict.keys())
+    counted_bosons = list(map(count_bosons, eqn_keys))
+
+    unique_bosons = {subspace: [] for subspace in boson_subspaces}
+    
+
+    for term in counted_bosons:
+        if term is None:
+            continue
+        res_count_dict = {subspace : 0 for subspace in boson_subspaces}
+        for subspace, boson_count in term.items():
+            res_count = boson_count.get("creation", 0) - boson_count.get("annihilation", 0)
+            # res_count > 0 means there are more creation operators than annihilation operators
+            # res_count < 0 means there are more annihilation operators than creation operators
+            res_count_dict[subspace] = res_count
+        for subspace, count in res_count_dict.items():
+            unique_bosons[subspace].append(count)
+
+    unique_bosons_count = array(list(unique_bosons.values())).T
+    check_unique_bosons = set(list(map(lambda x: ','.join(map(str, x)), unique_bosons_count)))
+    
+
+    if len(check_unique_bosons) != len(unique_bosons_count):
+        warnig_message = """Inconsistency in equations to solve. The equations used to solve for S are not linearly independent. Full diagonalization up to the selected order for the given problem is not yet supported. We recommend to either lower perturbation order, or otherwise use the truncated solver.
+        """
+
+        warnig_message =  textwrap.fill(warnig_message, width=100)
+
+        warnings.warn('\n' + warnig_message)
+            

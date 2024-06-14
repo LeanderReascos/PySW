@@ -27,15 +27,22 @@ class RDOperator(Operator):
 
     @property
     def subspace(self):
+        #return self._subspace
         return self.args[1]
     
     @property
     def dim(self):
+        #return self._dim
         return self.args[2]
-    
+        
     @property
     def matrix(self):
+        #return self._matrix
         return Matrix(self.args[3]).reshape(self.dim, self.dim)
+    
+    
+    def add_product_relation(self, other, result):
+        self._product_relations[other] = result
     
     def _sympystr(self, printer):
         return printer._print(self.name)
@@ -46,7 +53,9 @@ class RDOperator(Operator):
     def _eval_commutator_RDOperator(self, other, **options):
         if self.subspace != other.subspace:
             return S.Zero
-        return self * other - other * self
+        self_other = self._product_relations.get(other, self * other)
+        other_self = other._product_relations.get(self, other * self)
+        return (self_other - other_self).expand()
     
     def _eval_commutator_RDBoson(self, other, **options):
         return S.Zero
@@ -56,6 +65,10 @@ class RDOperator(Operator):
     
     def __new__(cls, name, subspace, dim, matrix):
         obj = Operator.__new__(cls, name, subspace, dim, matrix)
+        obj._product_relations = {}
+        #obj._subspace = subspace
+        #obj._dim = dim
+        #obj._matrix = matrix
         return obj
     
     
@@ -91,12 +104,20 @@ class RDBoson(Operator):
     def name(self):
         return self.args[0]
     @property
-    def subspace(self):
+    def subspace(self): 
         return self.args[1]
     
     @property
     def is_annihilation(self):
-        return self.args[2]
+        return  self.args[2]
+        
+    @property
+    def dim_projection(self):
+        return self.args[3]
+    
+    @property
+    def matrix(self):
+        return self._matrix
     
     def _sympystr(self, printer):
         return printer._print(self.name)
@@ -104,8 +125,19 @@ class RDBoson(Operator):
     def _latex(self, printer):
         return printer._print(self.name)
     
-    def __new__(cls, name=name, subspace=subspace, is_annihilation=True):
-        return Operator.__new__(cls, name, subspace, is_annihilation)
+    def __new__(cls, name=name, subspace=None, is_annihilation=True, dim_projection=1):
+        obj = Operator.__new__(cls, name, subspace, is_annihilation, dim_projection)
+
+        if is_annihilation:
+            obj._matrix = sp_zeros(dim_projection, dim_projection)
+            for i in range(1, dim_projection):
+                obj._matrix[i-1, i] = sqrt(i)
+        else:
+            obj._matrix = sp_zeros(dim_projection, dim_projection)
+            for i in range(1, dim_projection):
+                obj._matrix[i, i-1] = sqrt(i)
+
+        return obj
     
     def _eval_commutator_RDOperator(self, other, **options):
         return S.Zero
@@ -159,11 +191,24 @@ def get_terms_and_factors(expr : Expr):
 class RDBasis():
     def __init__(self, name, subspace, dim):
         self.name = name
-        self.subspace = subspace
+        self.subspace = Symbol(subspace)
         self.dim = dim
         matrix_basis = get_gell_mann(dim)
         self._basis = array([RDOperator(name + f'_{{{i}}}', subspace, dim, mat) for i, mat in enumerate(matrix_basis)], dtype=object)
-        self.basis_ling_alg_norm  = (self._basis[1].matrix.T.conjugate() * self._basis[1].matrix).trace()
+        if len(self._basis) == 1:
+            self.basis_ling_alg_norm = dim
+        else:
+            self.basis_ling_alg_norm  = (self._basis[1].matrix.T.conjugate() * self._basis[1].matrix).trace()
+
+        permutations = self._basis[:,None] * self._basis[None,:]
+        self.product_relations = {p : self.project(p) for p in permutations.flatten()}
+
+        for rd in self._basis:
+            for p in self._basis:
+                rd.add_product_relation(p, self.product_relations[rd*p])
+            
+    def apply_product_relation(self, expr):
+        return apply_substitution(expr, self.product_relations)
 
     @multimethod
     def project(self, to_be_projected : RDOperator):
@@ -206,12 +251,13 @@ class RDBasis():
             basis_coeffs[i] = (to_be_projected * basis.matrix.T.conjugate()).trace()
         
         basis_coeffs /= self.basis_ling_alg_norm
+        basis_coeffs[0] *= self.basis_ling_alg_norm / self.dim
         if basis_coeffs[0] == 1:
             return 1
         return basis_coeffs.dot(self._basis)
     @multimethod            
     def project_to_coeff_and_matrix(self, to_be_projected:RDOperator):
-        if str(to_be_projected.subspace) != self.subspace:
+        if to_be_projected.subspace != self.subspace:
             return to_be_projected, 1
         return 1, to_be_projected.matrix
     
@@ -275,3 +321,12 @@ def get_gell_mann(dim):
         matrices.append(diag)
     
     return matrices
+
+def apply_substitution(expr, substitution=None):
+    if substitution is None:
+        return expr
+    expr_new = expr.subs(substitution).expand()
+    while expr_new != expr:
+        expr = expr_new
+        expr_new = expr.subs(substitution).expand()
+    return expr_new
