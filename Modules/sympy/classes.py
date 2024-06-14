@@ -20,6 +20,31 @@ from itertools import product
 
 
 class RDOperator(Operator):
+    """
+    A class representing an RD Operator in quantum mechanics.
+
+    Attributes
+    ----------
+    name : str
+        The name of the operator.
+    subspace : str
+        The subspace the operator acts on.
+    dim : int
+        The dimension of the operator.
+    matrix : Matrix
+        The matrix representation of the operator.
+
+    Methods
+    -------
+    add_product_relation(other, result):
+        Adds a product relation for the operator.
+    _eval_commutator_RDOperator(other, **options):
+        Evaluates the commutator with another RDOperator.
+    _eval_commutator_RDBoson(other, **options):
+        Evaluates the commutator with an RDBoson.
+    _eval_commutator_RDsymbol(other, **options):
+        Evaluates the commutator with an RDsymbol.
+    """
 
     @property
     def name(self):
@@ -75,6 +100,23 @@ class RDOperator(Operator):
         
 
 class RDsymbol(Symbol):
+    """
+    A class representing an RD Symbol in quantum mechanics.
+
+    Attributes
+    ----------
+    order : int
+        The order of the symbol.
+
+    Methods
+    -------
+    _eval_commutator_RDOperator(other, **options):
+        Evaluates the commutator with an RDOperator.
+    _eval_commutator_RDBoson(other, **options):
+        Evaluates the commutator with an RDBoson.
+    _eval_commutator_RDsymbol(other, **options):
+        Evaluates the commutator with another RDsymbol.
+    """
 
     @property
     def order(self):
@@ -99,6 +141,31 @@ class RDsymbol(Symbol):
         
     
 class RDBoson(Operator):
+    """
+    A class representing an RD Boson operator in quantum mechanics.
+
+    Attributes
+    ----------
+    name : str
+        The name of the boson operator.
+    subspace : str
+        The subspace the boson operator acts on.
+    is_annihilation : bool
+        Indicates if the operator is an annihilation operator.
+    dim_projection : int
+        The dimension of the projection.
+    matrix : Matrix
+        The matrix representation of the boson operator.
+
+    Methods
+    -------
+    _eval_commutator_RDOperator(other, **options):
+        Evaluates the commutator with an RDOperator.
+    _eval_commutator_RDBoson(other, **options):
+        Evaluates the commutator with another RDBoson.
+    _eval_commutator_RDsymbol(other, **options):
+        Evaluates the commutator with an RDsymbol.
+    """
 
     @property
     def name(self):
@@ -156,39 +223,32 @@ class RDBoson(Operator):
         return S.Zero
 
 
-@multimethod
-def get_terms_and_factors(expr: Union[Symbol, Operator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    """Returns tuple of two lists: one containing ordered terms within expr, the second 
-        containing lists of factors for each term."""
-    return [expr], [[expr]]
-
-@multimethod
-def get_terms_and_factors(expr: Pow):
-    """Returns tuple of two lists: one containing ordered terms within expr, the second 
-        containing lists of factors for each term."""
-    pow_base, pow_exp = expr.as_base_exp()
-    if isinstance(pow_base, int) and pow_exp > 0:
-        return [expr], [[pow_base for _ in range(pow_exp)]]
-    return [expr], [[expr]]
-
-@multimethod
-def get_terms_and_factors(expr : Expr):
-    """Returns tuple of two lists: one containing ordered terms within expr, the second 
-        containing lists of factors for each term."""
-    expr = expr.expand()
-    terms = expr.as_ordered_terms()
-    factors_of_terms = []
-    for term in terms:
-        factors = term.as_ordered_factors()
-        factors_list = []
-        for f in factors:
-            _, f_list = get_terms_and_factors(f)
-            factors_list += f_list[0]
-        factors_of_terms.append(factors_list)
-
-    return terms, factors_of_terms
-
 class RDBasis():
+    """
+    A class representing a basis of RD Operators.
+
+    Attributes
+    ----------
+    name : str
+        The name of the basis.
+    subspace : Symbol
+        The subspace symbol.
+    dim : int
+        The dimension of the basis.
+    _basis : ndarray
+        Array of basis RDOperators.
+    basis_ling_alg_norm : float
+        Normalization factor for the basis.
+
+    Methods
+    -------
+    apply_product_relation(expr):
+        Applies product relations to an expression.
+    project(to_be_projected):
+        Projects an operator onto the basis.
+    project_to_coeff_and_matrix(to_be_projected):
+        Projects an operator to its coefficient and matrix representation.
+    """
     def __init__(self, name, subspace, dim):
         self.name = name
         self.subspace = Symbol(subspace)
@@ -277,9 +337,24 @@ class RDBasis():
         return to_be_projected, 1
     
 
-    
-
 class RDCompositeBasis:
+    """
+    A class representing a composite basis of multiple RDBasis objects.
+
+    Attributes
+    ----------
+    bases : list
+        List of RDBasis objects.
+    dim : int
+        Dimension of the composite basis.
+    _basis : ndarray
+        Array of basis elements.
+
+    Methods
+    -------
+    project(to_be_projected):
+        Projects an operator onto the composite basis.
+    """
     def __init__(self, bases : list[RDBasis]):
         self.bases = bases
         self.dim = Mul(*[basis.dim for basis in bases])
@@ -293,7 +368,19 @@ class RDCompositeBasis:
 
 
 def get_gell_mann(dim):
-    """Generates the set of generalized Gell-Mann matrices for a given dimension."""
+    """
+    Generates the set of generalized Gell-Mann matrices for a given dimension.
+
+    Parameters
+    ----------
+    dim : int
+        The dimension for which the Gell-Mann matrices are to be generated.
+
+    Returns
+    -------
+    list
+        A list of Gell-Mann matrices.
+    """
     matrices = [eye(dim)]
     
     # Lambda_1 to Lambda_(n-1)^2
@@ -322,7 +409,90 @@ def get_gell_mann(dim):
     
     return matrices
 
+@multimethod
+def get_terms_and_factors(expr: Union[Symbol, Operator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+    """
+    Returns tuple of two lists: one containing ordered terms within expr, the second 
+    containing lists of factors for each term.
+
+    Parameters
+    ----------
+    expr : Union[Symbol, Operator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]
+        The expression to be processed.
+
+    Returns
+    -------
+    tuple
+        A tuple containing a list of terms and a list of lists of factors.
+    """
+    return [expr], [[expr]]
+
+@multimethod
+def get_terms_and_factors(expr: Pow):
+    """
+    Returns tuple of two lists: one containing ordered terms within expr, the second 
+    containing lists of factors for each term.
+
+    Parameters
+    ----------
+    expr : Pow
+        The power expression to be processed.
+
+    Returns
+    -------
+    tuple
+        A tuple containing a list of terms and a list of lists of factors.
+    """
+    pow_base, pow_exp = expr.as_base_exp()
+    if isinstance(pow_base, int) and pow_exp > 0:
+        return [expr], [[pow_base for _ in range(pow_exp)]]
+    return [expr], [[expr]]
+
+@multimethod
+def get_terms_and_factors(expr : Expr):
+    """
+    Returns tuple of two lists: one containing ordered terms within expr, the second 
+    containing lists of factors for each term.
+
+    Parameters
+    ----------
+    expr : Expr
+        The expression to be processed.
+
+    Returns
+    -------
+    tuple
+        A tuple containing a list of terms and a list of lists of factors.
+    """"
+    expr = expr.expand()
+    terms = expr.as_ordered_terms()
+    factors_of_terms = []
+    for term in terms:
+        factors = term.as_ordered_factors()
+        factors_list = []
+        for f in factors:
+            _, f_list = get_terms_and_factors(f)
+            factors_list += f_list[0]
+        factors_of_terms.append(factors_list)
+
+    return terms, factors_of_terms
+
 def apply_substitution(expr, substitution=None):
+    """
+    Applies a substitution to an expression until no more changes occur.
+
+    Parameters
+    ----------
+    expr : Expr
+        The expression to which the substitution will be applied.
+    substitution : dict, optional
+        The substitution dictionary to be applied. If None, returns the original expression.
+
+    Returns
+    -------
+    Expr
+        The resulting expression after applying the substitution.
+    """
     if substitution is None:
         return expr
     expr_new = expr.subs(substitution).expand()

@@ -8,7 +8,31 @@ from itertools import product
 
 
 def get_ansatz(Vk, composite_basis):
+    """
+    Generate an ansatz for the given operator and basis.
 
+    This function creates an ansatz by separating terms with infinite operators and
+    combining them with the composite basis using symbolic coefficients.
+
+    Parameters:
+    -----------
+    Vk : sympy.Expr
+        The operator to be separated and combined with the composite basis.
+    composite_basis : CompositeBasis
+        The composite basis to be used in the ansatz.
+
+    Returns:
+    --------
+    tuple
+        - ansatz (sympy.Expr): The generated ansatz.
+        - symbol_s (list): A list of symbolic coefficients used in the ansatz.
+
+    Examples:
+    ---------
+    >>> Vk = ...  # some operator
+    >>> composite_basis = ...  # some composite basis
+    >>> ansatz, symbols = get_ansatz(Vk, composite_basis)
+    """
     to_separate = list(group_by_infinite_operators(Vk).keys())
     order = min(list(group_by_order(Vk).keys()))
     ansatz = 0
@@ -21,6 +45,32 @@ def get_ansatz(Vk, composite_basis):
 
 
 def generate_keys(order):
+    """
+    Generate all possible keys with sums of their elements up to a given order.
+
+    This function generates all combinations of keys where the sum of the elements 
+    does not exceed the specified order. The keys are generated using a depth-first 
+    search algorithm.
+
+    Parameters:
+    -----------
+    order : int
+        The maximum sum for the keys.
+
+    Returns:
+    --------
+    List[List[int]]
+        A list of lists where each inner list is a key whose elements sum up to 
+        the given order.
+
+    Examples:
+    ---------
+    >>> generate_keys(2)
+    [[], [0], [0, 0], [1], [0, 1], [2], [1, 1]]
+
+    >>> generate_keys(1)
+    [[], [0], [0, 0], [1]]
+    """
     keys = [] # will contain keys
     
     def deapth_first_search(current_key, current_sum):
@@ -41,9 +91,36 @@ def generate_keys(order):
 
 def custom_sort_key(sublist):
     """
-    Custom sorting key function:
+    Custom sorting key function for sublists.
+
+    This function provides a custom key for sorting sublists based on specific rules:
     - First, sorts by the sum of sublist elements in increasing order.
-    - Second, sorts sublists with equal sums by moving sublists of length 2 containing a 0 in the first element to the bottom.
+    - Second, moves sublists of length 2 with a 0 in the first element to the bottom.
+
+    Parameters:
+    -----------
+    sublist : List[int]
+        The sublist to generate the sorting key for.
+
+    Returns:
+    --------
+    Tuple[int, int]
+        A tuple where the first element is the sum of the sublist and the second element 
+        is 1 if the sublist length is 2 and the first element is 0, otherwise 0.
+
+    Examples:
+    ---------
+    >>> custom_sort_key([0, 1])
+    (1, 0)
+
+    >>> custom_sort_key([0, 0])
+    (0, 0)
+
+    >>> custom_sort_key([1, 2, 3])
+    (6, 0)
+
+    >>> custom_sort_key([0, 2])
+    (2, 1)
     """
     sublist_sum = sum(sublist)
     sublist_length = len(sublist)
@@ -55,6 +132,31 @@ def custom_sort_key(sublist):
         return (sublist_sum, 0)
 
 def rearrange_keys(list_of_sublists):
+    """
+    Rearrange a list of sublists based on a custom sorting key.
+
+    This function sorts a list of sublists using the custom_sort_key function to 
+    determine the order. The sorting is primarily by the sum of the elements in each 
+    sublist. Sublists of length 2 with a 0 as the first element are moved to the bottom.
+
+    Parameters:
+    -----------
+    list_of_sublists : List[List[int]]
+        The list of sublists to be sorted.
+
+    Returns:
+    --------
+    List[List[int]]
+        The sorted list of sublists.
+
+    Examples:
+    ---------
+    >>> rearrange_keys([[0, 1], [0, 0], [1, 2, 3], [0, 2], [1]])
+    [[0, 0], [0, 1], [1], [1, 2, 3], [0, 2]]
+
+    >>> rearrange_keys([[2, 3], [0, 3], [1]])
+    [[1], [2, 3], [0, 3]]
+    """
     # Sort sublists based on custom key
     sorted_sublists = sorted(list_of_sublists, key=custom_sort_key)
 
@@ -62,6 +164,30 @@ def rearrange_keys(list_of_sublists):
 
 
 def RD_solve(expr, unknowns):
+    """
+    Solve a system of equations involving finite operators.
+
+    This function solves a system of equations extracted from the given expression,
+    grouping them by finite operators, and then solving for the specified unknowns.
+
+    Parameters:
+    -----------
+    expr : sympy.Expr
+        The expression containing the equations to be solved.
+    unknowns : list
+        The list of unknowns to solve for.
+
+    Returns:
+    --------
+    dict
+        A dictionary containing the solutions for the unknowns.
+
+    Examples:
+    ---------
+    >>> expr = ...  # some expression
+    >>> unknowns = [...]  # list of unknowns
+    >>> solutions = RD_solve(expr, unknowns)
+    """
     eqs_dict = group_by_finite_operators(expr)
     equations_to_solve = list(eqs_dict.values())
     sols = solve(equations_to_solve, unknowns)
@@ -69,6 +195,37 @@ def RD_solve(expr, unknowns):
 
 
 def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relations=None):
+    """
+    Solve a Hamiltonian using perturbation theory up to a specified order.
+
+    This function solves for the Hamiltonian using a perturbative approach, taking into
+    account commutation relations, and generates solutions for each order of perturbation.
+
+    Parameters:
+    -----------
+    H : sympy.Expr
+        The Hamiltonian to be solved.
+    composite_basis : CompositeBasis
+        The composite basis to be used in the solution.
+    order : int, optional
+        The order of perturbation theory to use (default is 2).
+    full_diagonal : bool, optional
+        Whether to fully diagonalize the Hamiltonian (default is True).
+    commutation_relations : dict, optional
+        The commutation relations to be used (default is None).
+
+    Returns:
+    --------
+    tuple
+        - H_final (sympy.Expr): The final Hamiltonian.
+        - S (dict): A dictionary containing the solutions for each order.
+
+    Examples:
+    ---------
+    >>> H = ...  # some Hamiltonian
+    >>> composite_basis = ...  # some composite basis
+    >>> H_final, S = solver(H, composite_basis, order=2, full_diagonal=True)
+    """
 
     from_list_to_key_lenght = lambda l: ('-'.join([str(i) for i in l]), len(l))
 
@@ -175,6 +332,26 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
     return H_final, S
 
 def raise_warning(group_by_infinite_operators_dict, boson_subspaces):
+    """
+    Raise a warning if there is an inconsistency in the equations to solve.
+
+    This function checks for inconsistencies in the equations derived from 
+    group_by_infinite_operators. It warns if the equations are not linearly 
+    independent, suggesting alternative approaches.
+
+    Parameters:
+    -----------
+    group_by_infinite_operators_dict : dict
+        A dictionary of grouped infinite operators.
+    boson_subspaces : list
+        A list of boson subspaces.
+
+    Examples:
+    ---------
+    >>> group_by_infinite_operators_dict = ...  # some dictionary
+    >>> boson_subspaces = [...]  # list of boson subspaces
+    >>> raise_warning(group_by_infinite_operators_dict, boson_subspaces)
+    """
     # Raise warning if inconsistency in equations to solve
     eqn_keys = list(group_by_infinite_operators_dict.keys())
     counted_bosons = list(map(count_bosons, eqn_keys))

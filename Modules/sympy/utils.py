@@ -16,7 +16,19 @@ numbers_list = [int, float, complex, Integer, Float, ImaginaryUnit, One, Half, R
 
 @multimethod
 def group_by_order(expr: Pow):
-    """Returns dict of expressions separated into orders."""
+    """
+    Returns dict of expressions separated into orders.
+
+    Parameters
+    ----------
+    expr : Pow
+        The power expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with orders as keys and corresponding expressions as values.
+    """
     base_order = group_by_order(expr.base)
     if isinstance(base_order, int):
         return  base_order * expr.exp
@@ -24,17 +36,53 @@ def group_by_order(expr: Pow):
 
 @multimethod
 def group_by_order(expr: RDsymbol):
-    """Returns dict of expressions separated into orders.
+    """
+    Returns dict of expressions separated into orders.
+
+    Parameters
+    ----------
+    expr : RDsymbol
+        The RDsymbol expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with orders as keys and corresponding expressions as values.
     """
     return expr.order
 
 @multimethod
 def group_by_order(expr: Union[RDBoson, RDOperator, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
+    """
+    Returns dict of expressions separated into orders.
+
+    Parameters
+    ----------
+    expr : Union[RDBoson, RDOperator, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]
+        The expression to be processed.
+
+    Returns
+    -------
+    int
+        Order of the expression, 0 for the given types.
+    """
     return 0
 
 @multimethod
 def group_by_order(expr: Expr):
-    """Returns dict of expressions separated into orders."""
+    """
+    Returns dict of expressions separated into orders.
+
+    Parameters
+    ----------
+    expr : Expr
+        The general expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with orders as keys and corresponding expressions as values.
+    """
     terms, factors_of_terms = get_terms_and_factors(expr)
     
     order_separated = {}
@@ -47,17 +95,53 @@ def group_by_order(expr: Expr):
 
 @multimethod
 def group_by_infinite(expr: RDBoson):
-    """Returns dict of expressions separated into infinite and finite subspaces."""
+    """
+    Returns dict of expressions separated into infinite and finite subspaces.
+
+    Parameters
+    ----------
+    expr : RDBoson
+        The RDBoson expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True as key for infinite subspaces.
+    """
     return {True : expr}
 
 @multimethod
 def group_by_infinite(expr: Union[RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    """Returns dict of expressions separated into infinite and finite subspaces."""
+    """
+    Returns dict of expressions separated into infinite and finite subspaces.
+
+    Parameters
+    ----------
+    expr : Union[RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]
+        The expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with False as key for finite subspaces.
+    """
     return {False : expr}
 
 @multimethod
 def group_by_infinite(expr: Expr):
-    """Returns dict of expressions separated into infinite and finite subspaces."""
+    """
+    Returns dict of expressions separated into infinite and finite subspaces.
+
+    Parameters
+    ----------
+    expr : Expr
+        The general expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True/False as keys for infinite/finite subspaces.
+    """
     terms, factors_of_terms = get_terms_and_factors(expr)
 
     infinity_separated = dict()
@@ -70,13 +154,37 @@ def group_by_infinite(expr: Expr):
 
 @multimethod
 def group_by_infinite(expr: Pow):
-    """Returns dict of expressions separated into infinite and finite subspaces."""
+    """
+    Returns dict of expressions separated into infinite and finite subspaces.
+
+    Parameters
+    ----------
+    expr : Pow
+        The power expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True/False as keys for infinite/finite subspaces.
+    """
     is_inf = any(group_by_infinite(expr.base).keys())
     return {is_inf : expr}
 
 
 def group_by_finite(expr):
-    """Returns dict of expressions separated into finite and infinite subspaces."""
+    """
+    Returns dict of expressions separated into finite and infinite subspaces.
+
+    Parameters
+    ----------
+    expr : Expr
+        The general expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True/False as keys for finite/infinite subspaces.
+    """
     result_infinite = group_by_infinite(expr)
     # Swap keys
     return {not key : value for key, value in result_infinite.items()}
@@ -84,17 +192,53 @@ def group_by_finite(expr):
 
 @multimethod
 def group_by_has_finite(expr: RDOperator):
-    """Returns dict of expressions separated into infinite and finite subspaces."""
+    """
+    Returns dict of expressions separated into infinite and finite subspaces.
+
+    Parameters
+    ----------
+    expr : RDOperator
+        The RDOperator expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True as key for finite subspaces.
+    """
     return {True : expr}
 
 @multimethod
 def group_by_has_finite(expr: Union[RDBoson, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    """Returns dict of expressions separated into infinite and finite subspaces."""
+    """
+    Returns dict of expressions separated into infinite and finite subspaces.
+
+    Parameters
+    ----------
+    expr : Union[RDBoson, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]
+        The expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with False as key for infinite subspaces.
+    """
     return {False : expr}
 
 @multimethod
 def group_by_has_finite(expr: Expr):
-    """Returns dict of expressions separated into infinite and finite subspaces."""
+    """
+    Returns dict of expressions separated into infinite and finite subspaces.
+
+    Parameters
+    ----------
+    expr : Expr
+        The general expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True/False as keys for finite/infinite subspaces.
+    """
     terms, factors_of_terms = get_terms_and_factors(expr)
 
     finite_separated = dict()
@@ -107,25 +251,72 @@ def group_by_has_finite(expr: Expr):
 
 @multimethod
 def group_by_has_finite(expr: Pow):
-    """Returns dict of expressions separated into infinite and finite subspaces."""
+    """
+    Returns dict of expressions separated into infinite and finite subspaces.
+
+    Parameters
+    ----------
+    expr : Pow
+        The power expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True/False as keys for finite/infinite subspaces.
+    """
     is_f = any(group_by_has_finite(expr.base).keys())
     return {is_f : expr}
 
 
 @multimethod
 def count_bosons(expr: Union[RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    """Returns number of bosons in expression."""
+    """
+    Returns number of bosons in expression.
+
+    Parameters
+    ----------
+    expr : Union[RDOperator, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]
+        The expression to be processed.
+
+    Returns
+    -------
+    None
+    """
     return
 
 
 @multimethod
 def count_bosons(expr: RDBoson):
-    """Returns number of bosons in expression."""
+    """
+    Returns number of bosons in expression.
+
+    Parameters
+    ----------
+    expr : RDBoson
+        The RDBoson expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with subspaces as keys and creation/annihilation counts as values.
+    """
     return {expr.subspace : {"annihilation" if expr.is_annihilation else "creation": 1}}
 
 @multimethod
 def count_bosons(expr: Pow):
-    """Returns number of bosons in expression."""
+    """
+    Returns number of bosons in expression.
+
+    Parameters
+    ----------
+    expr : Pow
+        The power expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with subspaces as keys and creation/annihilation counts as values.
+    """
     expr = expr.expand()
     base, exp = expr.as_base_exp()
     result_count = count_bosons(base)
@@ -139,7 +330,19 @@ def count_bosons(expr: Pow):
 
 @multimethod
 def count_bosons(expr: Expr):
-    """Returns number of bosons in expression. Note that this function should receive only *Terms*"""
+    """
+    Returns number of bosons in expression. Note that this function should receive only *Terms*.
+
+    Parameters
+    ----------
+    expr : Expr
+        The general expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with subspaces as keys and creation/annihilation counts as values.
+    """
     expr = expr.expand()
     terms, factors_of_terms = get_terms_and_factors(expr)
 
@@ -165,23 +368,71 @@ def count_bosons(expr: Expr):
 
 @multimethod
 def group_by_diagonal(expr: RDOperator):
-    """Returns dict of expressions separated into diagonal and non-diagonal terms."""
+    """
+    Returns dict of expressions separated into diagonal and non-diagonal terms.
+
+    Parameters
+    ----------
+    expr : RDOperator
+        The RDOperator expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True/False as keys for diagonal/non-diagonal terms.
+    """
     return {np_sum(Abs(expr.matrix - diag(*expr.matrix.diagonal()))) == 0 : expr}
 
 @multimethod
 def group_by_diagonal(expr: Union[RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    """Returns dict of expressions separated into diagonal and non-diagonal terms."""
+    """
+    Returns dict of expressions separated into diagonal and non-diagonal terms.
+
+    Parameters
+    ----------
+    expr : Union[RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]
+        The expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True as key for diagonal terms.
+    """
     return {True : expr}
 
 @multimethod
 def group_by_diagonal(expr: Pow):
-    """Returns dict of expressions separated into diagonal and non-diagonal terms."""
+    """
+    Returns dict of expressions separated into diagonal and non-diagonal terms.
+
+    Parameters
+    ----------
+    expr : Pow
+        The power expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True/False as keys for diagonal/non-diagonal terms.
+    """
     result = group_by_diagonal(expr.base)
     return {key : value**expr.exp for key, value in result.items()}
 
 @multimethod
 def group_by_diagonal(expr: Union[Expr, RDBoson]):
-    """Returns dict of expressions separated into diagonal and non-diagonal terms."""
+    """
+    Returns dict of expressions separated into diagonal and non-diagonal terms.
+
+    Parameters
+    ----------
+    expr : Union[Expr, RDBoson]
+        The general expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with True/False as keys for diagonal/non-diagonal terms.
+    """
 
     terms, factors_of_terms = get_terms_and_factors(expr)
 
@@ -199,16 +450,53 @@ def group_by_diagonal(expr: Union[Expr, RDBoson]):
 
 @multimethod
 def get_finite_identities(expr: Union[RDBoson, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]):
-    """Returns dict of sympy matrices for each subspace spanned by expr."""
+    """
+    Returns dict of sympy matrices for each subspace spanned by expr.
+
+    Parameters
+    ----------
+    expr : Union[RDBoson, RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]
+        The expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with subspaces as keys and sympy matrices as values.
+    """
     return dict()
 
 @multimethod
 def get_finite_identities(expr: RDOperator):
+    """
+    Returns dict of sympy matrices for each subspace spanned by expr.
+
+    Parameters
+    ----------
+    expr : RDOperator
+        The RDOperator expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with subspaces as keys and sympy matrices as values.
+    """
     return {expr.subspace : eye(expr.dim)}
 
 @multimethod
 def get_finite_identities(expr: Expr):
-    """Returns dict of sympy matrices for each subspace spanned by expr."""
+    """
+    Returns dict of sympy matrices for each subspace spanned by expr.
+
+    Parameters
+    ----------
+    expr : Expr
+        The general expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with subspaces as keys and sympy matrices as values.
+    """
     terms, factors_of_terms = get_terms_and_factors(expr)
 
     identities = dict()
@@ -217,15 +505,22 @@ def get_finite_identities(expr: Expr):
             identities.update(get_finite_identities(factor))
     return identities
 
-def nested_commutator(A, B, k=1):
-    if k == 0:
-        return A
-    if k == 1:
-        return Commutator(A, B)
-
-    return Commutator(nested_commutator(A, B, k-1), B)
-
 def group_by_infinite_operators(expr, commutation_relations = None):
+     """
+    Groups the expression by infinite operators.
+
+    Parameters
+    ----------
+    expr : Expr
+        The general expression to be processed.
+    commutation_relations : dict, optional
+        Commutation relations to be applied, by default None.
+
+    Returns
+    -------
+    dict
+        Dictionary with infinite operators and their corresponding expressions.
+    """
     expr = expr.expand()
     infinit_dict = group_by_infinite(expr)
     result_dict = {1: infinit_dict.get(False, 0)}
@@ -261,9 +556,37 @@ def group_by_infinite_operators(expr, commutation_relations = None):
     return result_dict
 
 def apply_commutation_relations(expr, commutation_relations=None):
+    """
+    Applies commutation relations to the expression.
+
+    Parameters
+    ----------
+    expr : Expr
+        The expression to be processed.
+    commutation_relations : dict, optional
+        Commutation relations to be applied, by default None.
+
+    Returns
+    -------
+    Expr
+        The expression with commutation relations applied.
+    """
     return apply_substitution(expr, commutation_relations)
 
 def expand_commutator(expr):
+    """
+    Expands the commutators in the expression until no further expansion is possible.
+
+    Parameters
+    ----------
+    expr : Expr
+        The expression to be expanded.
+
+    Returns
+    -------
+    Expr
+        The fully expanded expression.
+    """
     expr_expanded = expr.expand(commutator=True)
     while expr_expanded != expr:
         expr = expr_expanded
@@ -271,6 +594,19 @@ def expand_commutator(expr):
     return expr_expanded
 
 def group_by_finite_operators(expr):
+    """
+    Groups the expression by finite operators.
+
+    Parameters
+    ----------
+    expr : Expr
+        The general expression to be processed.
+
+    Returns
+    -------
+    dict
+        Dictionary with finite operators and their corresponding expressions.
+    """
     expr = expr.expand()
     finite_dict = group_by_has_finite(expr)
     result_dict = {1: finite_dict.get(False, 0)}
@@ -298,23 +634,108 @@ def group_by_finite_operators(expr):
 
 @ multimethod
 def get_matrix(H: RDOperator, list_subspaces):
+    """
+    Returns the Kronecker product of the matrix representation of an RDOperator ``H``
+    over specified subspaces.
+
+    Parameters
+    ----------
+    H : RDOperator
+        The RDOperator whose matrix representation is to be kronecker-producted.
+    list_subspaces : list
+        List of tuples ``[(subspace, dim), ...]`` specifying subspaces and dimensions.
+
+    Returns
+    -------
+    Matrix
+        The Kronecker product matrix.
+
+    """
     return kronecker_product(*[H.matrix if H.subspace == subspace else eye(dim) for subspace, dim in list_subspaces])
 
 @ multimethod
 def get_matrix(H: RDBoson, list_subspaces):
+    """
+    Returns the Kronecker product of the matrix representation of an RDBoson ``H``
+    over specified subspaces.
+
+    Parameters
+    ----------
+    H : RDBoson
+        The RDBoson whose matrix representation is to be kronecker-producted.
+    list_subspaces : list
+        List of tuples ``[(subspace, dim), ...]`` specifying subspaces and dimensions.
+
+    Returns
+    -------
+    Matrix
+        The Kronecker product matrix.
+
+    """
     return kronecker_product(*[H.matrix if H.subspace == subspace else eye(dim) for subspace, dim in list_subspaces])
 
 @ multimethod
 def get_matrix(H: Union[RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational], list_subspaces):
+    """
+    Returns the Kronecker product of the matrix representation of an RDsymbol or scalar ``H``
+    multiplied by identity matrices over specified subspaces.
+
+    Parameters
+    ----------
+    H : Union[RDsymbol, int, float, complex, Integer, Float, ImaginaryUnit, One, Half, Rational]
+        The RDsymbol, scalar, or integer whose matrix representation is to be kronecker-producted.
+    list_subspaces : list
+        List of tuples ``[(subspace, dim), ...]`` specifying subspaces and dimensions.
+
+    Returns
+    -------
+    Matrix
+        The Kronecker product matrix.
+
+    """
     return H * kronecker_product(*[eye(dim) for subspace, dim in list_subspaces])
 
 @multimethod
 def get_matrix(H: Pow, list_subspaces):
+    """
+    Returns the Kronecker product of the matrix representation of the base of ``H``
+    raised to the exponent of ``H``, over specified subspaces.
+
+    Parameters
+    ----------
+    H : Pow
+        The power expression whose base's matrix representation is to be kronecker-producted.
+    list_subspaces : list
+        List of tuples ``[(subspace, dim), ...]`` specifying subspaces and dimensions.
+
+    Returns
+    -------
+    Matrix
+        The Kronecker product matrix.
+
+    """
     base, exp = H.as_base_exp()
     return get_matrix(base, list_subspaces) ** exp
 
 @ multimethod
 def get_matrix(H: Expr, list_subspaces):
+    """
+    Returns the composite matrix formed by summing the Kronecker products of matrices
+    corresponding to factors within the expanded expression ``H`` over specified subspaces.
+
+    Parameters
+    ----------
+    H : Expr
+        The expression whose factors' matrix representations are to be kronecker-producted.
+    list_subspaces : list
+        List of tuples ``[(subspace, dim), ...]`` specifying subspaces and dimensions.
+
+    Returns
+    -------
+    Matrix
+        The composite matrix.
+
+    """
     # list_subspaces : [[subspace, dim], ...]
     H = H.expand()
     terms, factors = get_terms_and_factors(H)
@@ -330,5 +751,14 @@ def get_matrix(H: Expr, list_subspaces):
 from IPython.display import display, Math
 
 def display_dict(dictionary):
+    """
+    Displays LaTeX representation of keys and values in the provided dictionary using IPython's display function.
+
+    Parameters
+    ----------
+    dictionary : dict
+        The dictionary containing keys and values to be displayed.
+
+    """
     for key, value in dictionary.items():
         display(Math(f"{latex(key)} : {latex(value)}"))
