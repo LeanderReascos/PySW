@@ -163,7 +163,7 @@ def get_ansatz(dim):
 
 
 def solver(H, list_subspaces, order=2, full_diagonal=True):
-     """
+    """
     Solve the Hamiltonian system by generating and using nested commutators.
 
     This function decomposes the Hamiltonian into subspaces and iteratively constructs
