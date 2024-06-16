@@ -463,7 +463,7 @@ def get_terms_and_factors(expr : Expr):
     -------
     tuple
         A tuple containing a list of terms and a list of lists of factors.
-    """"
+    """
     expr = expr.expand()
     terms = expr.as_ordered_terms()
     factors_of_terms = []

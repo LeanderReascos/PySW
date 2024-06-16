@@ -506,7 +506,7 @@ def get_finite_identities(expr: Expr):
     return identities
 
 def group_by_infinite_operators(expr, commutation_relations = None):
-     """
+    """
     Groups the expression by infinite operators.
 
     Parameters
