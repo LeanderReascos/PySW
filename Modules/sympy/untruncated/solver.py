@@ -237,6 +237,8 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
             continue
         for factor in term.as_ordered_factors():
             if factor.has(RDBoson):
+                if isinstance(factor, Pow):
+                    factor, _ = factor.as_base_exp()
                 subsaces.append(factor.subspace)
 
     boson_subspaces = list(set(subsaces))
