@@ -243,7 +243,7 @@ def solver(H, list_subspaces, order=2, full_diagonal=True):
             Vk = Vk_dict.get(order_it, zero_matrix)
             Bk = Bk_dict.get(order_it, zero_matrix)
 
-            print(f"Solving S_{k}")
+            #print(f"Solving S_{k}")
 
             Vk_plus_Bk = Vk + Bk
 
