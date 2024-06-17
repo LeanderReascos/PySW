@@ -555,6 +555,48 @@ def group_by_infinite_operators(expr, commutation_relations = None):
     
     return result_dict
 
+
+def group_by_list_operators(expr, operators = []):
+    """
+    Groups the expression by a list of operators.
+
+    Parameters
+    ----------
+    expr : Expr
+        The general expression to be processed.
+    operators : list
+        List of operators to group the expression.
+
+    Returns
+    -------
+    dict
+        Dictionary with operators and their corresponding expressions.
+    """
+    expr = expr.expand()
+    result_dict = {}
+
+    terms, factors_of_terms = get_terms_and_factors(expr)
+
+    has_op = lambda o: any([o.has(op) for op in operators])
+
+    for term in factors_of_terms:
+        result_term = 1
+        result_coeff = 1
+        for factor in term:
+            if isinstance(factor, Pow):
+                base, exp = factor.as_base_exp()
+                if has_op(base):
+                    result_term *= base**exp
+                    continue
+            if has_op(factor):
+                result_term *= factor
+                continue
+            result_coeff *= factor
+
+        result_dict[result_term] = result_dict.get(result_term, 0) + result_coeff
+    
+    return result_dict
+
 def apply_commutation_relations(expr, commutation_relations=None):
     """
     Applies commutation relations to the expression.
