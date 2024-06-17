@@ -1,7 +1,7 @@
 from sympy import solve, factorial, symbols, Rational, diag, factorial, zeros, Matrix
 from Modules.sympy.classes import *
 from Modules.sympy.utils import *
-
+from tqdm import tqdm
 from itertools import product
 
 
@@ -230,7 +230,7 @@ def solver(H, list_subspaces, order=2, full_diagonal=True):
 
     S = {}
 
-    for key in keys:
+    for key in tqdm(keys):
         k_total, l_total = from_list_to_key_lenght(key)
         order_it = np_sum(key)
         k_last, _ = from_list_to_key_lenght(key[:-1])
@@ -243,7 +243,7 @@ def solver(H, list_subspaces, order=2, full_diagonal=True):
             Vk = Vk_dict.get(order_it, zero_matrix)
             Bk = Bk_dict.get(order_it, zero_matrix)
 
-            print(f"Solving S_{k}")
+            #print(f"Solving S_{k}")
 
             Vk_plus_Bk = Vk + Bk
 
