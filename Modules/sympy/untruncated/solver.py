@@ -231,9 +231,9 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
 
     terms = H.expand().as_ordered_terms()
     subsaces = []
+    
     for term in terms:
         if not term.has(RDBoson):
-            
             continue
         for factor in term.as_ordered_factors():
             if factor.has(RDBoson):
@@ -252,13 +252,20 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
     H_ordered = group_by_order(H)
     elementes_ordered = {str(key): value for key, value in H_ordered.items()}
 
-    H0 = elementes_ordered.get('0', 0)
-   
+    H0_full = elementes_ordered.get('0', 0)
+    H0, H0_p = [group_by_diagonal(H0_full).get(key, 0) for key in [True, False]]
     Vk_dict = {}
     Bk_dict = {}
     H_final = 0
+  
+    if H0_p != 0 and full_diagonal:
+        warnings.warn("Complete perturbative diagonalization is impossible as Hamiltonian contains 0th order off-diagonal parameters.") 
     
     for key, value in H_ordered.items():
+        if key == 0: # to handle the case where hamiltonian contains 0th order off-diagonals
+            H_final += value
+            Vk_dict[key] = 0
+            continue
         Hk = group_by_diagonal(value)
         H_final += Hk.get(True, 0)
         Vk_dict[key] = Hk.get(False, 0)
@@ -272,7 +279,7 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
         k, _ = from_list_to_key_lenght([key[-1]])
                 
         if l_total == 1:
-                        continue
+            continue
             
         if l_total == 2 and key[0] == 0:
             Vk = Vk_dict.get(order_it, 0)
@@ -289,7 +296,7 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
             S_k_grouped = group_by_infinite_operators(Sk, commutation_relations)
             S_k_solved = 0
 
-            elementes_ordered[k_total] = - Vk_plus_Bk
+            
             eq = apply_commutation_relations(expand_commutator(Commutator(H0, Sk) + Vk_plus_Bk).doit(), commutation_relations)
             
             expression_to_solve = composite_basis.project(eq).simplify().expand()
@@ -310,6 +317,10 @@ def solver(H, composite_basis, order=2, full_diagonal=True, commutation_relation
                 S_k_solved += key * sk.subs(sols)
             
             S[k] = S_k_solved
+            kth_ord_off_diag = apply_commutation_relations(expand_commutator(Commutator(H0_p, S_k_solved)).doit(), commutation_relations)
+            elementes_ordered[k_total] = - Vk_plus_Bk  + kth_ord_off_diag
+            
+            H_final += kth_ord_off_diag
             continue
         
         prev_term = elementes_ordered.get(k_last, 0)
