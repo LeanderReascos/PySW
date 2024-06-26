@@ -3,6 +3,7 @@ from Modules.sympy.classes import *
 from Modules.sympy.utils import *
 from tqdm import tqdm
 from itertools import product
+from warnings import warn
 
 
 def generate_keys(order):
@@ -158,6 +159,8 @@ def get_ansatz(dim):
     ansatz = zeros(dim, dim)
     for i in range(dim):
         for j in range(dim):
+            if i == j: # skipping elements along diagonal
+                continue
             ansatz[i, j] = symbols_s[i * dim + j]
     return ansatz, symbols_s
 
@@ -208,22 +211,32 @@ def solver(H, list_subspaces, order=2, full_diagonal=True):
 
     rational_factorial = [Rational(1, factorial(i)) for i in range(order + 1)]
 
+    for i, key in enumerate(keys):
+        k_str, l = from_list_to_key_lenght(key)
+
     H_ordered = group_by_order(H)
     elementes_ordered = {str(key): get_matrix(value, list_subspaces) for key, value in H_ordered.items()}
 
-    H0 = elementes_ordered.get('0', 0)
-    dim = H0.shape[0]
+    dim = Mul(*[list_subspaces[i][1] for i in range(len(list_subspaces))])
     zero_matrix = zeros(dim)
-
+    H0_full = elementes_ordered.get('0', zero_matrix)
+    H0 = diag(*H0_full.diagonal()) # just diagonal
+    H0_p = H0_full - H0 # off-diagonal of zeroth order
+    if (H0_p != 0).all() and full_diagonal:
+        warn("Complete perturbative diagonalization is impossible as Hamiltonian contains 0th order off-diagonal parameters.") 
+        
     Vk_dict = {}
     Bk_dict = {}
-    H_final = zeros(H0.shape[0])
+    H_final = zeros(dim)
     
     for key, value in H_ordered.items():
         Hk = group_by_diagonal(value)
-        H_final += get_matrix(Hk.get(True, 0), list_subspaces)
-        Vk_dict[key] = get_matrix(Hk.get(False, 0), list_subspaces)
-
+        if key == 0: # if order is zero include also possible zero order terms outside of diagonal
+            H_final += get_matrix(Hk.get(True, 0), list_subspaces) + get_matrix(Hk.get(False, 0), list_subspaces)
+            Vk_dict[key] = zero_matrix
+            continue
+        H_final += get_matrix(Hk.get(True, zero_matrix), list_subspaces)
+        Vk_dict[key] = get_matrix(Hk.get(False, zero_matrix), list_subspaces)
 
     S = {}
 
@@ -240,40 +253,36 @@ def solver(H, list_subspaces, order=2, full_diagonal=True):
             Vk = Vk_dict.get(order_it, zero_matrix)
             Bk = Bk_dict.get(order_it, zero_matrix)
 
-            #print(f"Solving S_{k}")
-
             Vk_plus_Bk = Vk + Bk
 
             if Vk_plus_Bk == 0:
-                S[k] = 0
+                S[k] = zero_matrix
                 continue
-
             Sk, symbols_s = get_ansatz(dim)
-
-            elementes_ordered[k_total] = - Vk_plus_Bk
             expression_to_solve = (H0 * Sk - Sk * H0) + Vk_plus_Bk
-
-            sols = {s : 0 for s in symbols_s}
+            sols = {s : 0 for s in symbols_s}            
             solution = solve(expression_to_solve, symbols_s, dict=True)[0]
+            
             sols.update(solution)
-
             S[k] = Sk.subs(sols)
+            
+            kth_ord_off_diag = (H0_p * S[k] - S[k] * H0_p) # this is needed in the scenario we have off diagonals of 0 order
+            elementes_ordered[k_total] = - Vk_plus_Bk  + kth_ord_off_diag
+            
+            H_final += kth_ord_off_diag
+                
             continue
         
         prev_term = elementes_ordered.get(k_last, zero_matrix)
         Sk = S[k]
         new_term =  (prev_term * Sk - Sk * prev_term).doit()
-
         elementes_ordered[k_total] = new_term
-
         new_term_to_the_hamiltonian = rational_factorial[l_total - 1] * new_term
-
         if not full_diagonal:
             H_final += new_term_to_the_hamiltonian
             continue
         
         Hk_diag = diag(*new_term_to_the_hamiltonian.diagonal())
-
         Bk_dict[order_it] = Bk_dict.get(order_it, zero_matrix) + new_term_to_the_hamiltonian - Hk_diag
         H_final += Hk_diag
 
