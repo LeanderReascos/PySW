@@ -232,8 +232,8 @@ def solver(H, list_subspaces, order=2, full_diagonal=True):
             H_final += get_matrix(Hk.get(True, 0), list_subspaces) + get_matrix(Hk.get(False, 0), list_subspaces)
             Vk_dict[key] = zero_matrix
             continue
-        H_final += get_matrix(Hk.get(True, zero_matrix), list_subspaces)
-        Vk_dict[key] = get_matrix(Hk.get(False, zero_matrix), list_subspaces)
+        H_final += get_matrix(Hk.get(True, 0), list_subspaces)
+        Vk_dict[key] = get_matrix(Hk.get(False, 0), list_subspaces)
 
     S = {}
 
