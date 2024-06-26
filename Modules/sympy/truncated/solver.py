@@ -1,4 +1,4 @@
-from sympy import solve, factorial, symbols, Rational, diag, factorial, zeros, Matrix
+from sympy import solve, factorial, symbols, Rational, diag, factorial, zeros, Matrix, Abs
 from Modules.sympy.classes import *
 from Modules.sympy.utils import *
 from tqdm import tqdm
@@ -211,9 +211,6 @@ def solver(H, list_subspaces, order=2, full_diagonal=True):
 
     rational_factorial = [Rational(1, factorial(i)) for i in range(order + 1)]
 
-    for i, key in enumerate(keys):
-        k_str, l = from_list_to_key_lenght(key)
-
     H_ordered = group_by_order(H)
     elementes_ordered = {str(key): get_matrix(value, list_subspaces) for key, value in H_ordered.items()}
 
@@ -222,7 +219,7 @@ def solver(H, list_subspaces, order=2, full_diagonal=True):
     H0_full = elementes_ordered.get('0', zero_matrix)
     H0 = diag(*H0_full.diagonal()) # just diagonal
     H0_p = H0_full - H0 # off-diagonal of zeroth order
-    if (H0_p != 0).all() and full_diagonal:
+    if sum(Abs(H0_p)) != 0 and full_diagonal:
         warn("Complete perturbative diagonalization is impossible as Hamiltonian contains 0th order off-diagonal parameters.") 
         
     Vk_dict = {}
