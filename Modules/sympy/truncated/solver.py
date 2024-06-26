@@ -208,9 +208,6 @@ def solver(H, list_subspaces, order=2, full_diagonal=True):
 
     rational_factorial = [Rational(1, factorial(i)) for i in range(order + 1)]
 
-    for i, key in enumerate(keys):
-        k_str, l = from_list_to_key_lenght(key)
-
     H_ordered = group_by_order(H)
     elementes_ordered = {str(key): get_matrix(value, list_subspaces) for key, value in H_ordered.items()}
 
